@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-dotenv
+websockets
+aiohttp
+python-deriv-api
+pydantic
+scikit-learn
+numpy
+spacy

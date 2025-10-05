@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Click - Dashboard de Negociação com Accumulator Options</title>
+    <link rel="stylesheet" href="frontend/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body id="page-dashboard">
+
+    <header>
+        <a href="index.html" class="logo">FINANCE CLICK</a>
+        
+        <nav id="mainNav">
+            <a href="index.html" class="nav-link">Página Inicial</a>
+            <a href="dashboard.html" class="nav-link active">Dashboard</a>
+            <a href="history.html" class="nav-link">Histórico de Negociação</a>
+            <a href="guide.html" class="nav-link">Guia e FAQ</a>
+            <a href="about.html" class="nav-link">Sobre</a>
+            <a href="contact.html" class="nav-link">Contato</a>
+        </nav>
+
+        <div class="header-actions">
+            <div id="userInfo"></div>
+            <button class="btn-login-logout" id="loginLogoutBtn">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+            <a class="menu-toggle" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <section id="dashboard" class="page active">
+            <div class="dashboard-header">
+                <h2>Dashboard de Accumulator Options 
+                    <span class="ai-status" id="aiStatus">
+                        <i class="fas fa-circle"></i> Desligado
+                    </span>
+                </h2>
+                <div id="connectionStatus" class="connection-status">
+                    <i class="fas fa-wifi"></i> Conectado à Deriv API
+                </div>
+            </div>
+            
+            <div id="marketAnalysis" class="market-analysis">
+                <h4><i class="fas fa-chart-line"></i> Análise do Mercado em Tempo Real</h4>
+                <p>Carregando análise de Accumulator Options...</p>
+            </div>
+
+            <div class="dashboard-grid">
+                
+                <div class="trading-chart card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-bar"></i> Accumulator Options - Volatility 100</h3>
+                        <button class="btn btn-primary" id="toggleRobotBtn">LIGAR ROBÔ AI</button>
+                    </div>
+                    
+                    <div class="chart-placeholder">
+                        <i class="fas fa-chart-line fa-4x"></i>
+                        <p>Gráfico de Accumulator Options em Tempo Real</p>
+                        <small>Monitoramento de ticks e barreiras automáticas</small>
+                    </div>
+
+                    <div class="trading-controls">
+                        <div class="trading-card">
+                            <h4><i class="fas fa-play-circle"></i> Trading Manual</h4>
+                            
+                            <label for="symbolSelect">Símbolo:</label>
+                            <select id="symbolSelect">
+                                <option value="1HZ100V">Volatility 100 Index</option>
+                                <option value="1HZ75V">Volatility 75 Index</option>
+                                <option value="1HZ50V">Volatility 50 Index</option>
+                                <option value="1HZ25V">Volatility 25 Index</option>
+                                <option value="1HZ10V">Volatility 10 Index</option>
+                            </select>
+
+                            <label for="growthRate">Taxa de Crescimento:</label>
+                            <select id="growthRate">
+                                <option value="0.01">1% (Conservadora)</option>
+                                <option value="0.02" selected>2% (Moderada)</option>
+                                <option value="0.03">3% (Moderada)</option>
+                                <option value="0.04">4% (Agressiva)</option>
+                                <option value="0.05">5% (Agressiva)</option>
+                            </select>
+
+                            <label for="amount">Valor do Stake ($):</label>
+                            <input type="number" id="amount" min="5" max="1000" value="10" step="5">
+                            
+                            <div class="btn-group">
+                                <button class="btn btn-secondary" id="getProposalBtn">
+                                    <i class="fas fa-calculator"></i> Ver Proposta
+                                </button>
+                                <button class="btn btn-success" id="buyAccumulatorBtn">
+                                    <i class="fas fa-shopping-cart"></i> Comprar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="trading-info">
+                            <div id="proposalResult" class="proposal-result">
+                                <h5>Proposta do Contrato</h5>
+                                <p>Clique em "Ver Proposta" para simular</p>
+                            </div>
+                            
+                            <div id="contractDetails" class="contract-details">
+                                <h5>Contrato Ativo</h5>
+                                <p>Nenhum contrato ativo no momento</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-panel">
+                    <div class="card stat-card">
+                        <i class="fas fa-wallet"></i>
+                        <p>Saldo da Conta</p>
+                        <span class="value" id="accountBalance">$ 0.00</span>
+                        <small>Atualizado em tempo real</small>
+                    </div>
+
+                    <div class="card config-card">
+                        <h3><i class="fas fa-robot"></i> Configurações do Robô AI</h3>
+                        
+                        <label for="strategySelect">Estratégia:</label>
+                        <select id="strategySelect">
+                            <option value="conservative">Conservadora (1-2%)</option>
+                            <option value="moderate" selected>Moderada (2-3%)</option>
+                            <option value="aggressive">Agressiva (4-5%)</option>
+                        </select>
+
+                        <label for="stopLoss">Stop Loss (ticks):</label>
+                        <input type="number" id="stopLoss" value="3" min="1" max="10">
+
+                        <label for="takeProfit">Take Profit (ticks):</label>
+                        <input type="number" id="takeProfit" value="10" min="5" max="60">
+
+                        <label for="tradeAmount">Valor por Trade ($):</label>
+                        <input type="range" id="tradeAmount" min="5" max="100" value="10" step="5">
+                        <span id="tradeAmountValue">$10.00</span>
+
+                        <label for="maxDailyLoss">Perda Máxima Diária ($):</label>
+                        <input type="number" id="maxDailyLoss" value="100" min="10" max="1000">
+
+                        <div class="robot-stats">
+                            <h5>Estatísticas do Robô</h5>
+                            <div id="robotStats">
+                                <p><small>Robô desativado</small></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card risk-card">
+                        <h4><i class="fas fa-exclamation-triangle"></i> Aviso de Risco</h4>
+                        <p>
+                            Accumulator Options envolvem risco de perda. Você pode perder seu stake se o preço 
+                            tocar as barreiras. Nunca arrisque mais do que pode perder.
+                        </p>
+                        <div>
+                            <div>
+                                <strong>Risco:</strong> Limitado ao stake
+                            </div>
+                            <div>
+                                <strong>Duração:</strong> 1-60 ticks
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accumulator-panel card">
+                <h3><i class="fas fa-info-circle"></i> Sobre Accumulator Options</h3>
+                <div>
+                    <div>
+                        <h5>Como Funciona</h5>
+                        <p>
+                            Seu pagamento cresce exponencialmente (1-5% por tick) enquanto o preço permanece 
+                            dentro de uma faixa específica. Risco limitado ao valor do stake.
+                        </p>
+                    </div>
+                    <div>
+                        <h5>Benefícios</h5>
+                        <ul>
+                            <li>Crescimento composto</li>
+                            <li>Risco conhecido antecipadamente</li>
+                            <li>Resultados rápidos (1-60 ticks)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h5>Estratégias</h5>
+                        <ul>
+                            <li>Conservadora: Menor risco, crescimento menor</li>
+                            <li>Moderada: Equilíbrio risco/retorno</li>
+                            <li>Agressiva: Maior risco, crescimento maior</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Finance Click. Todos os direitos reservados. | Negociação Inteligente e Responsável.</p>
+        <p>
+            <i class="fas fa-exclamation-triangle"></i> 
+            A negociação de derivativos envolve riscos significativos. É possível perder todo o capital investido.
+        </p>
+    </footer>
+
+    <script src="scripts/script.js"></script>
+    
+    <script>
+        // Script específico para o dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            // Verificar autenticação ao carregar o dashboard
+            function checkDashboardAuth() {
+                if (!window.currentUser) {
+                    showNotification('Por favor, faça login para acessar o dashboard', 'warning');
+                    // Redirecionar para página inicial após 2 segundos
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                    return false;
+                }
+                return true;
+            }
+
+            // Inicializar dashboard se autenticado
+            if (checkDashboardAuth()) {
+                initializeDashboard();
+            }
+
+            function initializeDashboard() {
+                // Atualizar dados a cada 15 segundos
+                setInterval(updateDashboardData, 15000);
+                
+                // Configurar eventos específicos do dashboard
+                setupDashboardEvents();
+            }
+
+            function updateDashboardData() {
+                // Esta função será chamada pelo script principal
+                console.log('Atualizando dados do dashboard...');
+            }
+
+            function setupDashboardEvents() {
+                // Eventos específicos do dashboard podem ser adicionados aqui
+                const buyButton = document.getElementById('buyAccumulatorBtn');
+                if (buyButton) {
+                    buyButton.addEventListener('click', function() {
+                        // Feedback visual
+                        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...';
+                        setTimeout(() => {
+                            this.innerHTML = '<i class="fas fa-shopping-cart"></i> Comprar';
+                        }, 2000);
+                    });
+                }
+
+                // Atualizar análise de mercado quando a estratégia mudar
+                const strategySelect = document.getElementById('strategySelect');
+                if (strategySelect) {
+                    strategySelect.addEventListener('change', function() {
+                        loadMarketAnalysis();
+                    });
+                }
+            }
+
+            // Expor funções para o script principal
+            window.checkDashboardAuth = checkDashboardAuth;
+            window.initializeDashboard = initializeDashboard;
+        });
+    </script>
+</body>
+</html>

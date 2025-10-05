@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Click - Guia de Accumulator Options & Literacia Financeira</title>
+    <link rel="stylesheet" href="frontend/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    </head>
+<body id="page-guide">
+
+    <header>
+        <a href="index.html" class="logo">FINANCE CLICK</a>
+        
+        <nav id="mainNav">
+            <a href="index.html" class="nav-link">Página Inicial</a>
+            <a href="dashboard.html" class="nav-link">Dashboard</a>
+            <a href="history.html" class="nav-link">Histórico de Negociação</a>
+            <a href="guide.html" class="nav-link active">Guia e FAQ</a>
+            <a href="about.html" class="nav-link">Sobre</a>
+            <a href="contact.html" class="nav-link">Contato</a>
+        </nav>
+
+        <div class="header-actions">
+            <div id="userInfo"></div>
+            <button class="btn-login-logout" id="loginLogoutBtn">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+            <a class="menu-toggle" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <section id="guide" class="page active">
+            <div class="guide-container">
+                <div class="page-header">
+                    <h2><i class="fas fa-graduation-cap"></i> Guia Completo de Accumulator Options</h2>
+                    <p>Aprenda a negociar com inteligência usando nossa plataforma AI</p>
+                </div>
+
+                <div class="guide-sections">
+                    <div class="main-content">
+                        <div class="info-card">
+                            <h3><i class="fas fa-rocket"></i> O que são Accumulator Options?</h3>
+                            <p>Accumulator Options são instrumentos financeiros exclusivos da Deriv que permitem lucrar com mercados laterais através de <strong>crescimento composto</strong>. Seu pagamento aumenta exponencialmente enquanto o preço permanece dentro de uma faixa específica.</p>
+                            
+                            <div class="feature-grid">
+                                <div class="feature-card">
+                                    <i class="fas fa-chart-line"></i>
+                                    <h4>Crescimento Exponencial</h4>
+                                    <p>Seu stake cresce 1-5% por tick enquanto o preço permanece na faixa</p>
+                                </div>
+                                <div class="feature-card">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <h4>Risco Limitado</h4>
+                                    <p>Você só arrisca o valor do stake inicial - sem surpresas</p>
+                                </div>
+                                <div class="feature-card">
+                                    <i class="fas fa-bolt"></i>
+                                    <h4>Resultados Rápidos</h4>
+                                    <p>Trades de 1-60 ticks com liquidação instantânea</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-group">
+                            <h3><i class="fas fa-cogs"></i> Como Funcionam as Accumulator Options</h3>
+                            
+                            <div class="accordion-item">
+                                <button class="accordion-header">Mecanismo de Crescimento Composto</button>
+                                <div class="accordion-content">
+                                    <p>O crescimento composto funciona assim:</p>
+                                    <ul>
+                                        <li><strong>Taxa de Crescimento:</strong> Escolha entre 1%, 2%, 3%, 4% ou 5% por tick</li>
+                                        <li><strong>Faixa de Preço:</strong> Calculada automaticamente baseada na taxa escolhida</li>
+                                        <li><strong>Acumulação:</strong> Cada tick dentro da faixa aumenta seu pagamento</li>
+                                        <li><strong>Knock-out:</strong> Se o preço tocar as barreiras, você perde o stake</li>
+                                    </ul>
+                                    <div class="code-example">
+                                        // Exemplo: Stake de $10 com crescimento de 2%<br>
+                                        Tick 1: $10.00<br>
+                                        Tick 2: $10.20<br>
+                                        Tick 3: $10.40<br>
+                                        Tick 4: $10.61<br>
+                                        // ... e assim por diante
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">Escolhendo a Taxa de Crescimento Ideal</button>
+                                <div class="accordion-content">
+                                    <div class="strategy-comparison">
+                                        <div class="strategy-card strategy-conservative">
+                                            <h4>1-2% Conservadora</h4>
+                                            <p><strong>Vantagens:</strong></p>
+                                            <ul style="text-align: left;">
+                                                <li>Faixa mais ampla</li>
+                                                <li>Menor risco de knock-out</li>
+                                                <li>Ideal para iniciantes</li>
+                                            </ul>
+                                        </div>
+                                        <div class="strategy-card strategy-moderate">
+                                            <h4>3% Moderada</h4>
+                                            <p><strong>Vantagens:</strong></p>
+                                            <ul style="text-align: left;">
+                                                <li>Equilíbrio risco/retorno</li>
+                                                <li>Faixa média</li>
+                                                <li>Para traders experientes</li>
+                                            </ul>
+                                        </div>
+                                        <div class="strategy-card strategy-aggressive">
+                                            <h4>4-5% Agressiva</h4>
+                                            <p><strong>Vantagens:</strong></p>
+                                            <ul style="text-align: left;">
+                                                <li>Maior retorno potencial</li>
+                                                <li>Crescimento rápido</li>
+                                                <li>Para traders arrojados</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-group">
+                            <h3><i class="fas fa-robot"></i> Robô AI para Accumulator Options</h3>
+                            
+                            <div class="accordion-item">
+                                <button class="accordion-header">Como Configurar o Robô AI</button>
+                                <div class="accordion-content">
+                                    <p>Siga estes passos para configurar seu robô AI:</p>
+                                    <ol>
+                                        <li><strong>Conecte sua conta Deriv</strong> através do login OAuth</li>
+                                        <li><strong>Escolha a estratégia</strong> (Conservadora, Moderada ou Agressiva)</li>
+                                        <li><strong>Defina o Stop Loss</strong> em ticks (recomendado: 2-4 ticks)</li>
+                                        <li><strong>Configure o Take Profit</strong> em ticks (recomendado: 8-15 ticks)</li>
+                                        <li><strong>Selecione o valor por trade</strong> (nunca mais que 5% do seu saldo)</li>
+                                        <li><strong>Ative o robô</strong> e monitore o desempenho</li>
+                                    </ol>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">Estratégias do Robô AI</button>
+                                <div class="accordion-content">
+                                    <p>Nosso robô AI utiliza análise de mercado em tempo real para otimizar trades:</p>
+                                    <ul>
+                                        <li><strong>Análise de Volatilidade:</strong> Ajusta automaticamente a taxa de crescimento</li>
+                                        <li><strong>Gestão de Risco:</strong> Para após atingir limites diários</li>
+                                        <li><strong>Otimização de Entrada:</strong> Identifica momentos ideais para trade</li>
+                                        <li><strong>Take Profit Dinâmico:</strong> Ajusta objetivos baseado nas condições</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-group">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Gestão de Risco & Melhores Práticas</h3>
+                            
+                            <div class="accordion-item">
+                                <button class="accordion-header">Princípios Básicos de Gestão de Risco</button>
+                                <div class="accordion-content">
+                                    <div class="info-card warning">
+                                        <h4><i class="fas fa-lightbulb"></i> Regra de Ouro: Nunca arrisque mais do que pode perder</h4>
+                                    </div>
+                                    <ul>
+                                        <li><strong>Diversificação:</strong> Use diferentes símbolos de volatilidade</li>
+                                        <li><strong>Size Position:</strong> Máximo 2-5% do saldo por trade</li>
+                                        <li><strong>Stop Loss Diário:</strong> Defina um limite máximo de perda diária</li>
+                                        <li><strong>Take Profit Realista:</strong> Objetivos alcançáveis baseados no histórico</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">Psicologia do Trading com Robô AI</button>
+                                <div class="accordion-content">
+                                    <p>Vantagens de usar um robô AI:</p>
+                                    <ul>
+                                        <li><strong>Elimina Emoções:</strong> Sem medo ou ganância influenciando decisões</li>
+                                        <li><strong>Disciplina Consistente:</strong> Segue a estratégia sem desvios</li>
+                                        <li><strong>Operação 24/7:</strong> Não precisa de descanso ou pausas</li>
+                                        <li><strong>Backtesting:</strong> Estratégias testadas com dados históricos</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-group">
+                            <h3><i class="fas fa-question-circle"></i> FAQ Técnico</h3>
+                            
+                            <div class="accordion-item">
+                                <button class="accordion-header">Como Conectar com a API da Deriv?</button>
+                                <div class="accordion-content">
+                                    <p>O processo é simples e seguro:</p>
+                                    <ol>
+                                        <li>Clique em "Login" no header</li>
+                                        <li>Você será redirecionado para a página de login da Deriv</li>
+                                        <li>Faça login com sua conta Deriv</li>
+                                        <li>Autorize o acesso do Finance Click à sua conta</li>
+                                        <li>Você será redirecionado de volta automaticamente</li>
+                                        <li>Pronto! Sua conta está conectada via OAuth</li>
+                                    </ol>
+                                    <div class="info-card success">
+                                        <strong>Dica:</strong> Use sempre a autenticação OAuth para máxima segurança. Nunca compartilhe seus tokens de API manualmente.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <button class="accordion-header">Quais Símbolos estão Disponíveis?</button>
+                                <div class="accordion-content">
+                                    <p>Accumulator Options estão disponíveis nos seguintes índices de volatilidade:</p>
+                                    <ul>
+                                        <li><strong>Volatility 10 Index (1HZ10V):</strong> Baixa volatilidade</li>
+                                        <li><strong>Volatility 25 Index (1HZ25V):</strong> Volatilidade baixa-média</li>
+                                        <li><strong>Volatility 50 Index (1HZ50V):</strong> Volatilidade média</li>
+                                        <li><strong>Volatility 75 Index (1HZ75V):</strong> Volatilidade média-alta</li>
+                                        <li><strong>Volatility 100 Index (1HZ100V):</strong> Alta volatilidade</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sidebar">
+                        <div class="chatbot-container">
+                            <div class="chatbot-header">
+                                <h4><i class="fas fa-robot"></i> Assistente FinanceClick</h4>
+                                <small>Especialista em Accumulator Options</small>
+                            </div>
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="chat-message bot-message">
+                                    Olá! Sou o assistente do FinanceClick. Posso ajudar com:
+                                    <ul>
+                                        <li>Dúvidas sobre Accumulator Options</li>
+                                        <li>Configuração do robô AI</li>
+                                        <li>Gestão de risco</li>
+                                        <li>Estratégias de trading</li>
+                                    </ul>
+                                    O que gostaria de saber?
+                                </div>
+                            </div>
+                            <div class="chat-input-container">
+                                <div class="chat-input-group">
+                                    <input type="text" class="chat-input" id="chatInput" placeholder="Digite sua pergunta sobre Accumulator Options...">
+                                    <button class="send-chat-btn" id="sendChatBtn">
+                                        <i class="fas fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="info-card success" style="margin-top: 20px;">
+                            <h4><i class="fas fa-rocket"></i> Pronto para Começar?</h4>
+                            <p>Conecte sua conta e comece a negociar Accumulator Options com nosso robô AI.</p>
+                            <a href="dashboard.html" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                                <i class="fas fa-play"></i> Ir para o Dashboard
+                            </a>
+                        </div>
+
+                        <div class="info-card" style="margin-top: 15px;">
+                            <h4><i class="fas fa-history"></i> Ver Histórico</h4>
+                            <p>Analise seu desempenho e aprenda com trades passados.</p>
+                            <a href="history.html" class="btn btn-secondary" style="width: 100%; margin-top: 10px;">
+                                <i class="fas fa-chart-bar"></i> Ver Histórico
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card danger" style="margin-top: 40px;">
+                    <h4><i class="fas fa-exclamation-triangle"></i> Aviso Importante de Risco</h4>
+                    <p>Accumulator Options são produtos complexos e envolvem alto risco de perda rápida do capital devido à alavancagem. 
+                    78.6% dos investidores de retail perdem dinheiro ao negociar estes produtos. Você não deve arriscar mais do que está 
+                    preparado para perder. Certifique-se de que compreende todos os riscos envolvidos. A performance passada não é garantia 
+                    de resultados futuros.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Finance Click. Todos os direitos reservados. | Negociação Inteligente e Responsável.</p>
+        <p style="margin-top: 10px; font-size: 0.9em; color: #888;">
+            <i class="fas fa-graduation-cap"></i> 
+            Este conteúdo é educativo e não constitui recomendação de investimento.
+        </p>
+    </footer>
+
+    <script src="scripts/script.js"></script>
+    
+    <script>
+        // Script específico para a página de guia
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sistema de acordeão melhorado
+            const accordionHeaders = document.querySelectorAll('.accordion-header');
+            
+            accordionHeaders.forEach(header => {
+                header.addEventListener('click', function() {
+                    const content = this.nextElementSibling;
+                    const isOpen = content.classList.contains('open');
+                    
+                    // Fecha todos os outros
+                    accordionHeaders.forEach(h => {
+                        if (h !== header) {
+                            h.classList.remove('active');
+                            // A remoção da classe 'open' é o que esconde o conteúdo
+                            h.nextElementSibling.classList.remove('open');
+                        }
+                    });
+                    
+                    // Alterna o atual
+                    this.classList.toggle('active');
+                    content.classList.toggle('open');
+                });
+            });
+
+            // Abrir primeiro item por padrão
+            if (accordionHeaders.length > 0) {
+                // Simula o clique para abrir o primeiro item
+                accordionHeaders[0].click();
+            }
+
+            // Verificar autenticação para recursos premium
+            function checkGuideAuth() {
+                // Em versões futuras, podemos restringir conteúdo premium
+                return true;
+            }
+
+            // Inicializar página de guia
+            if (checkGuideAuth()) {
+                initializeGuidePage();
+            }
+
+            function initializeGuidePage() {
+                // Adicionar funcionalidades específicas do guia aqui
+                console.log('Página de guia inicializada');
+            }
+
+            // Expor funções para o script principal
+            window.initializeGuidePage = initializeGuidePage;
+        });
+    </script>
+</body>
+</html>

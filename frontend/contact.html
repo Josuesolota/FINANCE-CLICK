@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Click - Suporte e Contato</title>
+    <link rel="stylesheet" href="frontend/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body id="page-contact">
+
+    <header>
+        <a href="index.html" class="logo">FINANCE CLICK</a>
+        
+        <nav id="mainNav">
+            <a href="index.html" class="nav-link">Página Inicial</a>
+            <a href="dashboard.html" class="nav-link">Dashboard</a>
+            <a href="history.html" class="nav-link">Histórico de Negociação</a>
+            <a href="guide.html" class="nav-link">Guia e FAQ</a>
+            <a href="about.html" class="nav-link">Sobre</a>
+            <a href="contact.html" class="nav-link active">Contato</a>
+        </nav>
+
+        <div class="header-actions">
+            <div id="userInfo"></div>
+            <button class="btn-login-logout" id="loginLogoutBtn">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+            <a class="menu-toggle" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <section id="contact" class="page active">
+            <div class="contact-container">
+                <div class="contact-hero">
+                    <h1><i class="fas fa-headset"></i> Suporte Finance Click</h1>
+                    <p>Estamos aqui para ajudar você a ter a melhor experiência com Accumulator Options</p>
+                    <div class="status-indicator status-online" style="margin: 20px auto 0; display: inline-flex;">
+                        <i class="fas fa-circle"></i>
+                        Suporte Online - Resposta em até 2 horas
+                    </div>
+                </div>
+
+                <div id="formSuccess" class="form-success">
+                    <i class="fas fa-check-circle" style="font-size: 2em; margin-bottom: 10px;"></i>
+                    <h3>Mensagem Enviada com Sucesso!</h3>
+                    <p>Entraremos em contato em até 2 horas úteis. Obrigado pelo seu contato!</p>
+                </div>
+
+                <div id="formError" class="form-error">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 2em; margin-bottom: 10px;"></i>
+                    <h3>Erro ao Enviar Mensagem</h3>
+                    <p>Por favor, tente novamente ou entre em contato pelas redes sociais.</p>
+                </div>
+
+                <div class="contact-grid">
+                    <div class="contact-info">
+                        <div class="info-card">
+                            <h3><i class="fas fa-clock"></i> Horário de Atendimento</h3>
+                            <p><strong>Segunda a Sexta:</strong> 9:00 - 18:00 (Brasília)</p>
+                            <p><strong>Sábado:</strong> 9:00 - 12:00 (Brasília)</p>
+                            <p><strong>Domingo:</strong> Plantão para emergências</p>
+                        </div>
+
+                        <div class="info-card success">
+                            <h3><i class="fas fa-life-ring"></i> Canais de Suporte</h3>
+                            <div class="social-links">
+                                <a href="https://wa.me/5511999999999" target="_blank" class="social-link">
+                                    <i class="fab fa-whatsapp"></i>
+                                    <span>WhatsApp</span>
+                                </a>
+                                <a href="https://t.me/financeclick" target="_blank" class="social-link">
+                                    <i class="fab fa-telegram"></i>
+                                    <span>Telegram</span>
+                                </a>
+                                <a href="https://discord.gg/financeclick" target="_blank" class="social-link">
+                                    <i class="fab fa-discord"></i>
+                                    <span>Discord</span>
+                                </a>
+                                <a href="mailto:suporte@financeclick.com" class="social-link">
+                                    <i class="fas fa-envelope"></i>
+                                    <span>Email</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="info-card">
+                            <h3><i class="fas fa-share-alt"></i> Nossas Redes</h3>
+                            <div class="social-links">
+                                <a href="https://instagram.com/financeclick" target="_blank" class="social-link">
+                                    <i class="fab fa-instagram"></i>
+                                    <span>Instagram</span>
+                                </a>
+                                <a href="https://linkedin.com/company/financeclick" target="_blank" class="social-link">
+                                    <i class="fab fa-linkedin-in"></i>
+                                    <span>LinkedIn</span>
+                                </a>
+                                <a href="https://youtube.com/@financeclick" target="_blank" class="social-link">
+                                    <i class="fab fa-youtube"></i>
+                                    <span>YouTube</span>
+                                </a>
+                                <a href="https://github.com/financeclick" target="_blank" class="social-link">
+                                    <i class="fab fa-github"></i>
+                                    <span>GitHub</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="info-card warning">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Antes de Contatar</h3>
+                            <p><strong>Verifique nosso Guia:</strong> Muitas dúvidas são respondidas na página de Guia e FAQ.</p>
+                            <p><strong>Problemas Técnicos:</strong> Inclua printscreens e detalhes do erro.</p>
+                            <p><strong>Urgências:</strong> Use WhatsApp para questões críticas.</p>
+                        </div>
+                    </div>
+
+                    <form class="contact-form" id="contactForm">
+                        <h3><i class="fas fa-paper-plane"></i> Envie sua Mensagem</h3>
+                        
+                        <div class="form-group">
+                            <label for="name">Seu Nome Completo *</label>
+                            <input type="text" id="name" class="form-control" placeholder="Como gostaria de ser chamado" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Seu Email *</label>
+                            <input type="email" id="email" class="form-control" placeholder="seu@email.com" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="subject">Assunto *</label>
+                            <select id="subject" class="form-control" required>
+                                <option value="">Selecione o assunto...</option>
+                                <option value="technical">Problema Técnico</option>
+                                <option value="accumulator">Dúvida sobre Accumulator Options</option>
+                                <option value="robot">Configuração do Robô AI</option>
+                                <option value="account">Problema com Conta/Login</option>
+                                <option value="suggestion">Sugestão de Melhoria</option>
+                                <option value="partnership">Parceria/Colaboração</option>
+                                <option value="other">Outro</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="priority">Prioridade</label>
+                            <select id="priority" class="form-control">
+                                <option value="low">Baixa - Dúvida geral</option>
+                                <option value="medium" selected>Média - Funcionalidade não working</option>
+                                <option value="high">Alta - Plataforma inacessível</option>
+                                <option value="critical">Crítica - Perda financeira</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="message">Sua Mensagem *</label>
+                            <textarea id="message" class="form-control" placeholder="Descreva em detalhes como podemos ajudar você..." required></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="attachments">Anexos (Opcional)</label>
+                            <input type="file" id="attachments" class="form-control" multiple accept=".jpg,.jpeg,.png,.pdf,.txt">
+                            <small style="color: #666;">Anexe printscreens ou documentos relevantes (máx. 5MB cada)</small>
+                        </div>
+
+                        <button type="submit" class="submit-btn" id="submitBtn">
+                            <i class="fas fa-paper-plane"></i> Enviar Mensagem
+                        </button>
+
+                        <p style="text-align: center; margin-top: 15px; color: #666; font-size: 0.9em;">
+                            <i class="fas fa-lock"></i> Seus dados estão seguros conosco. Não compartilhamos informações.
+                        </p>
+                    </form>
+                </div>
+
+                <div class="support-channels">
+                    <div class="channel-card">
+                        <i class="fas fa-robot"></i>
+                        <h3>Suporte Técnico</h3>
+                        <p>Problemas com a plataforma, configuração do robô AI ou integração com a Deriv</p>
+                        <div class="response-time">Resposta: 1-2 horas</div>
+                        <a href="mailto:tecnico@financeclick.com" class="btn btn-primary" style="margin-top: 15px;">
+                            <i class="fas fa-envelope"></i> Email Técnico
+                        </a>
+                    </div>
+
+                    <div class="channel-card">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>Suporte Trading</h3>
+                        <p>Dúvidas sobre Accumulator Options, estratégias ou gestão de risco</p>
+                        <div class="response-time">Resposta: 2-4 horas</div>
+                        <a href="https://wa.me/5511999999999" target="_blank" class="btn btn-success" style="margin-top: 15px;">
+                            <i class="fab fa-whatsapp"></i> WhatsApp Trading
+                        </a>
+                    </div>
+
+                    <div class="channel-card">
+                        <i class="fas fa-user-shield"></i>
+                        <h3>Suporte Segurança</h3>
+                        <p>Problemas de login, segurança da conta ou dados pessoais</p>
+                        <div class="response-time">Resposta: Imediato</div>
+                        <a href="https://t.me/financeclick" target="_blank" class="btn btn-warning" style="margin-top: 15px;">
+                            <i class="fab fa-telegram"></i> Telegram Urgente
+                        </a>
+                    </div>
+                </div>
+
+                <div class="faq-preview">
+                    <h2 style="text-align: center; margin-bottom: 10px;">Perguntas Frequentes</h2>
+                    <p style="text-align: center; color: #666; max-width: 600px; margin: 0 auto 30px;">
+                        Respostas rápidas para as dúvidas mais comuns sobre Accumulator Options
+                    </p>
+                    
+                    <div class="faq-grid">
+                        <div class="faq-item">
+                            <h4><i class="fas fa-question-circle"></i> Como conectar com a Deriv?</h4>
+                            <p>Use o login OAuth - é seguro e não precisa de tokens manuais. Clique em "Login" no header.</p>
+                        </div>
+                        <div class="faq-item">
+                            <h4><i class="fas fa-cogs"></i> O robô AI não está funcionando</h4>
+                            <p>Verifique sua conexão com a Deriv e se há saldo suficiente. Contate-nos se persistir.</p>
+                        </div>
+                        <div class="faq-item">
+                            <h4><i class="fas fa-exchange-alt"></i> Posso trocar de estratégia?</h4>
+                            <p>Sim, a qualquer momento no dashboard. O robô se adapta automaticamente.</p>
+                        </div>
+                        <div class="faq-item">
+                            <h4><i class="fas fa-shield-alt"></i> Meus dados estão seguros?</h4>
+                            <p>Sim! Usamos OAuth e não armazenamos senhas. Sua conta Deriv fica protegida.</p>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 30px;">
+                        <a href="guide.html" class="btn btn-primary">
+                            <i class="fas fa-book"></i> Ver Guia Completo
+                        </a>
+                    </div>
+                </div>
+
+                <div class="info-card danger" style="margin-top: 40px;">
+                    <h3><i class="fas fa-ambulance"></i> Situações de Emergência</h3>
+                    <p><strong>Problemas Críticos:</strong> Se você está enfrentando perdas devido a problemas técnicos na plataforma, entre em contato imediatamente:</p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                        <a href="https://wa.me/5511999999999" target="_blank" class="btn btn-danger">
+                            <i class="fab fa-whatsapp"></i> WhatsApp Emergencial
+                        </a>
+                        <a href="tel:+5511999999999" class="btn btn-danger">
+                            <i class="fas fa-phone"></i> Ligação de Emergência
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Finance Click. Todos os direitos reservados. | Negociação Inteligente e Responsável.</p>
+        <p style="margin-top: 10px; font-size: 0.9em; color: #888;">
+            <i class="fas fa-clock"></i> 
+            Horário de atendimento: Segunda a Sexta, 9h-18h (Brasília)
+        </p>
+    </footer>
+
+    <script src="scripts/script.js"></script>
+    
+    <script>
+        // Script específico para a página de contato
+        document.addEventListener('DOMContentLoaded', function() {
+            const contactForm = document.getElementById('contactForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const formSuccess = document.getElementById('formSuccess');
+            const formError = document.getElementById('formError');
+
+            // Inicializar página de contato
+            function initializeContactPage() {
+                setupContactForm();
+                updateContactStatus();
+            }
+
+            // Configurar formulário de contato
+            function setupContactForm() {
+                if (!contactForm) return;
+
+                contactForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    // Validar formulário
+                    if (!validateContactForm()) {
+                        return;
+                    }
+
+                    // Mostrar loading
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+                    submitBtn.disabled = true;
+
+                    try {
+                        // Coletar dados do formulário
+                        const formData = {
+                            name: document.getElementById('name').value,
+                            email: document.getElementById('email').value,
+                            subject: document.getElementById('subject').value,
+                            priority: document.getElementById('priority').value,
+                            message: document.getElementById('message').value,
+                            timestamp: new Date().toISOString(),
+                            userAgent: navigator.userAgent
+                        };
+
+                        // Enviar para o backend (simulação - em produção, enviar para API real)
+                        await simulateFormSubmission(formData);
+                        
+                        // Mostrar sucesso
+                        showFormSuccess();
+                        
+                        // Limpar formulário
+                        contactForm.reset();
+                        
+                    } catch (error) {
+                        console.error('Erro ao enviar formulário:', error);
+                        showFormError();
+                    } finally {
+                        // Restaurar botão
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    }
+                });
+
+                // Validação em tempo real
+                const inputs = contactForm.querySelectorAll('input, select, textarea');
+                inputs.forEach(input => {
+                    input.addEventListener('blur', validateField);
+                });
+            }
+
+            // Validar campo individual
+            function validateField(e) {
+                const field = e.target;
+                if (field.hasAttribute('required') && !field.value.trim()) {
+                    field.style.borderColor = '#f44336';
+                } else {
+                    field.style.borderColor = '#4CAF50';
+                }
+            }
+
+            // Validar formulário completo
+            function validateContactForm() {
+                let isValid = true;
+                const requiredFields = contactForm.querySelectorAll('[required]');
+                
+                requiredFields.forEach(field => {
+                    if (!field.value.trim()) {
+                        field.style.borderColor = '#f44336';
+                        isValid = false;
+                        
+                        // Scroll para o primeiro campo inválido
+                        if (isValid === false) {
+                            field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            field.focus();
+                        }
+                    }
+                });
+
+                return isValid;
+            }
+
+            // Simular envio do formulário
+            function simulateFormSubmission(formData) {
+                return new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        // Em produção, substituir por:
+                        // fetch('/api/contact', {
+                        //     method: 'POST',
+                        //     headers: { 'Content-Type': 'application/json' },
+                        //     body: JSON.stringify(formData)
+                        // })
+                        
+                        console.log('Dados do formulário:', formData);
+                        
+                        // Simular 90% de sucesso
+                        if (Math.random() > 0.1) {
+                            resolve(formData);
+                        } else {
+                            reject(new Error('Erro de servidor simulado'));
+                        }
+                    }, 2000);
+                });
+            }
+
+            // Mostrar mensagem de sucesso
+            function showFormSuccess() {
+                formSuccess.style.display = 'block';
+                formError.style.display = 'none';
+                
+                // Scroll para a mensagem
+                formSuccess.scrollIntoView({ behavior: 'smooth' });
+                
+                // Esconder após 10 segundos
+                setTimeout(() => {
+                    formSuccess.style.display = 'none';
+                }, 10000);
+            }
+
+            // Mostrar mensagem de erro
+            function showFormError() {
+                formError.style.display = 'block';
+                formSuccess.style.display = 'none';
+                
+                // Scroll para a mensagem
+                formError.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            // Atualizar status de atendimento
+            function updateContactStatus() {
+                const now = new Date();
+                const hour = now.getHours();
+                const day = now.getDay();
+                
+                const statusIndicator = document.querySelector('.status-indicator');
+                const statusIcon = statusIndicator.querySelector('i');
+                const statusText = statusIndicator;
+                
+                // Verificar se está dentro do horário comercial
+                const isBusinessHours = (day >= 1 && day <= 5 && hour >= 9 && hour < 18) || 
+                                      (day === 6 && hour >= 9 && hour < 12);
+                
+                if (isBusinessHours) {
+                    statusIndicator.className = 'status-indicator status-online';
+                    statusIcon.className = 'fas fa-circle';
+                    statusText.innerHTML = '<i class="fas fa-circle"></i> Suporte Online - Resposta em até 2 horas';
+                } else {
+                    statusIndicator.className = 'status-indicator status-busy';
+                    statusIcon.className = 'fas fa-clock';
+                    statusText.innerHTML = '<i class="fas fa-clock"></i> Fora do Horário - Resposta no próximo dia útil';
+                }
+            }
+
+            // Verificar autenticação
+            function checkContactAuth() {
+                // Página de contato é acessível a todos
+                return true;
+            }
+
+            // Inicializar página
+            if (checkContactAuth()) {
+                initializeContactPage();
+            }
+
+            // Atualizar status a cada minuto
+            setInterval(updateContactStatus, 60000);
+
+            // Expor funções para o script principal
+            window.initializeContactPage = initializeContactPage;
+        });
+    </script>
+</body>
+</html>

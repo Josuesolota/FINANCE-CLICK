@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Click - Histórico de Accumulator Options</title>
+    <link rel="stylesheet" href="frontend/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .history-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .filter-controls {
+            display: grid;
+            grid-template-columns: auto auto 1fr auto;
+            gap: 15px;
+            margin: 20px 0;
+            align-items: center;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .filter-controls select, .filter-controls input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-card.win {
+            border-left-color: #4CAF50;
+        }
+
+        .stat-card.loss {
+            border-left-color: #f44336;
+        }
+
+        .stat-card .value {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-card .label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .win {
+            border-left: 4px solid #4CAF50;
+        }
+
+        .loss {
+            border-left: 4px solid #f44336;
+        }
+
+        .open {
+            border-left: 4px solid #FF9800;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .status-win {
+            background: #e8f5e8;
+            color: #4CAF50;
+        }
+
+        .status-loss {
+            background: #ffebee;
+            color: #f44336;
+        }
+
+        .status-open {
+            background: #fff3cd;
+            color: #ff9800;
+        }
+
+        .growth-rate {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading i {
+            font-size: 2em;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .export-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .export-btn:hover {
+            background: #218838;
+        }
+
+        @media (max-width: 768px) {
+            .filter-controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+
+        .accumulator-badge {
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7em;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body id="page-history">
+
+    <header>
+        <a href="index.html" class="logo">FINANCE CLICK</a>
+        
+        <nav id="mainNav">
+            <a href="index.html" class="nav-link">Página Inicial</a>
+            <a href="dashboard.html" class="nav-link">Dashboard</a>
+            <a href="history.html" class="nav-link active">Histórico de Negociação</a>
+            <a href="guide.html" class="nav-link">Guia e FAQ</a>
+            <a href="about.html" class="nav-link">Sobre</a>
+            <a href="contact.html" class="nav-link">Contato</a>
+        </nav>
+
+        <div class="header-actions">
+            <div id="userInfo"></div>
+            <button class="btn-login-logout" id="loginLogoutBtn">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+            <a class="menu-toggle" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <section id="history" class="page active">
+            <div class="history-container">
+                <h2><i class="fas fa-history"></i> Histórico de Accumulator Options</h2>
+                <p>Visualize todas as suas negociações de Accumulator Options em um só lugar</p>
+
+                <!-- Cartões de Estatísticas -->
+                <div class="stats-cards" id="statsCards">
+                    <div class="stat-card win">
+                        <i class="fas fa-trophy"></i>
+                        <div class="value" id="totalWins">0</div>
+                        <div class="label">Trades Lucrativos</div>
+                    </div>
+                    <div class="stat-card loss">
+                        <i class="fas fa-chart-line"></i>
+                        <div class="value" id="totalLosses">0</div>
+                        <div class="label">Trades Perdedores</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-percentage"></i>
+                        <div class="value" id="winRate">0%</div>
+                        <div class="label">Taxa de Acerto</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-dollar-sign"></i>
+                        <div class="value" id="totalProfit">$0.00</div>
+                        <div class="label">Lucro Total</div>
+                    </div>
+                </div>
+
+                <!-- Controles de Filtro -->
+                <div class="filter-controls">
+                    <select id="periodFilter">
+                        <option value="today">Hoje</option>
+                        <option value="7days" selected>Últimos 7 Dias</option>
+                        <option value="30days">Últimos 30 Dias</option>
+                        <option value="all">Todo o Período</option>
+                    </select>
+                    
+                    <select id="symbolFilter">
+                        <option value="all">Todos os Símbolos</option>
+                        <option value="1HZ100V">Volatility 100</option>
+                        <option value="1HZ75V">Volatility 75</option>
+                        <option value="1HZ50V">Volatility 50</option>
+                        <option value="1HZ25V">Volatility 25</option>
+                        <option value="1HZ10V">Volatility 10</option>
+                    </select>
+                    
+                    <select id="resultFilter">
+                        <option value="all">Todos os Resultados</option>
+                        <option value="win">Apenas Lucros</option>
+                        <option value="loss">Apenas Perdas</option>
+                        <option value="open">Em Aberto</option>
+                    </select>
+                    
+                    <button class="export-btn" id="exportBtn">
+                        <i class="fas fa-download"></i> Exportar CSV
+                    </button>
+                </div>
+
+                <!-- Tabela de Histórico -->
+                <div class="table-container card">
+                    <div id="historyLoading" class="loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Carregando histórico de trades...</p>
+                    </div>
+                    
+                    <div id="noHistoryData" class="no-data" style="display: none;">
+                        <i class="fas fa-inbox"></i>
+                        <h4>Nenhum trade encontrado</h4>
+                        <p>Execute seu primeiro trade de Accumulator Options no dashboard para ver o histórico aqui.</p>
+                        <a href="dashboard.html" class="btn btn-primary" style="margin-top: 15px;">
+                            <i class="fas fa-rocket"></i> Ir para o Dashboard
+                        </a>
+                    </div>
+
+                    <table id="historyTable" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>ID do Contrato</th>
+                                <th>Símbolo</th>
+                                <th>Tipo</th>
+                                <th>Taxa Cresc.</th>
+                                <th>Valor</th>
+                                <th>Resultado</th>
+                                <th>Ticks</th>
+                                <th>Data/Hora</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <!-- Dados serão carregados via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Informações sobre Accumulator Options -->
+                <div class="info-card" style="background: #f0f8ff; padding: 20px; border-radius: 10px; margin-top: 30px; border-left: 4px solid #667eea;">
+                    <h4><i class="fas fa-info-circle"></i> Sobre o Histórico de Accumulator Options</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
+                        <div>
+                            <h5 style="color: #667eea;">Status dos Trades</h5>
+                            <ul style="font-size: 0.9em; color: #666;">
+                                <li><span class="status-badge status-win">Lucro</span> - Trade fechado com lucro</li>
+                                <li><span class="status-badge status-loss">Perda</span> - Trade fechado com perda</li>
+                                <li><span class="status-badge status-open">Aberto</span> - Trade ainda em andamento</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h5 style="color: #667eea;">Métricas Importantes</h5>
+                            <ul style="font-size: 0.9em; color: #666;">
+                                <li><strong>Taxa de Crescimento:</strong> Percentual de crescimento por tick (1-5%)</li>
+                                <li><strong>Ticks:</strong> Número de ticks que o preço permaneceu na faixa</li>
+                                <li><strong>Valor:</strong> Valor do stake investido</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Finance Click. Todos os direitos reservados. | Negociação Inteligente e Responsável.</p>
+        <p style="margin-top: 10px; font-size: 0.9em; color: #888;">
+            <i class="fas fa-exclamation-triangle"></i> 
+            Os dados históricos são fornecidos pela Deriv API e podem ter até 5 minutos de delay.
+        </p>
+    </footer>
+
+    <script src="scripts/script.js"></script>
+    
+    <script>
+        // Script específico para a página de histórico
+        document.addEventListener('DOMContentLoaded', function() {
+            let tradeHistory = [];
+            let filteredHistory = [];
+
+            // Verificar autenticação
+            function checkHistoryAuth() {
+                if (!window.currentUser) {
+                    showNotification('Por favor, faça login para ver o histórico', 'warning');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                    return false;
+                }
+                return true;
+            }
+
+            // Inicializar página de histórico
+            if (checkHistoryAuth()) {
+                initializeHistoryPage();
+            }
+
+            function initializeHistoryPage() {
+                loadTradeHistory();
+                setupHistoryEvents();
+            }
+
+            async function loadTradeHistory() {
+                const loadingElement = document.getElementById('historyLoading');
+                const tableElement = document.getElementById('historyTable');
+                const noDataElement = document.getElementById('noHistoryData');
+                const tableBody = document.getElementById('historyTableBody');
+
+                try {
+                    // Simulação de dados - na implementação real, buscar da API
+                    await simulateAPILoad();
+                    
+                    // Em produção, usar:
+                    // const response = await fetch('/api/accumulators/history');
+                    // tradeHistory = await response.json();
+                    
+                    // Dados de exemplo para demonstração
+                    tradeHistory = [
+                        {
+                            id: '123456789',
+                            symbol: '1HZ100V',
+                            type: 'ACCU',
+                            growth_rate: 0.02,
+                            amount: 10,
+                            result: 8.95,
+                            ticks: 12,
+                            timestamp: new Date().toISOString(),
+                            status: 'win'
+                        },
+                        {
+                            id: '123456788',
+                            symbol: '1HZ75V',
+                            type: 'ACCU',
+                            growth_rate: 0.05,
+                            amount: 15,
+                            result: -15,
+                            ticks: 3,
+                            timestamp: new Date(Date.now() - 86400000).toISOString(),
+                            status: 'loss'
+                        },
+                        {
+                            id: '123456787',
+                            symbol: '1HZ100V',
+                            type: 'ACCU',
+                            growth_rate: 0.03,
+                            amount: 20,
+                            result: 25.50,
+                            ticks: 18,
+                            timestamp: new Date(Date.now() - 172800000).toISOString(),
+                            status: 'win'
+                        }
+                    ];
+
+                    filteredHistory = [...tradeHistory];
+                    
+                    // Esconder loading
+                    loadingElement.style.display = 'none';
+                    
+                    if (tradeHistory.length > 0) {
+                        tableElement.style.display = 'table';
+                        updateHistoryTable();
+                        updateStatsCards();
+                    } else {
+                        noDataElement.style.display = 'block';
+                    }
+
+                } catch (error) {
+                    console.error('Erro ao carregar histórico:', error);
+                    loadingElement.style.display = 'none';
+                    noDataElement.style.display = 'block';
+                    showNotification('Erro ao carregar histórico de trades', 'error');
+                }
+            }
+
+            function updateHistoryTable() {
+                const tableBody = document.getElementById('historyTableBody');
+                tableBody.innerHTML = '';
+
+                filteredHistory.forEach(trade => {
+                    const row = document.createElement('tr');
+                    row.className = trade.status;
+                    
+                    const growthRatePercent = (trade.growth_rate * 100).toFixed(1);
+                    const resultClass = trade.result > 0 ? 'status-win' : 
+                                       trade.result < 0 ? 'status-loss' : 'status-open';
+                    const resultText = trade.result > 0 ? `+ $${Math.abs(trade.result).toFixed(2)}` :
+                                      trade.result < 0 ? `- $${Math.abs(trade.result).toFixed(2)}` : 'Em andamento';
+                    const statusText = trade.status === 'win' ? 'Lucro' : 
+                                      trade.status === 'loss' ? 'Perda' : 'Aberto';
+
+                    row.innerHTML = `
+                        <td>${trade.id}</td>
+                        <td>
+                            ${trade.symbol}
+                            <span class="accumulator-badge">ACCU</span>
+                        </td>
+                        <td>Accumulator</td>
+                        <td><span class="growth-rate">${growthRatePercent}%</span></td>
+                        <td>$${trade.amount.toFixed(2)}</td>
+                        <td><span class="status-badge ${resultClass}">${resultText}</span></td>
+                        <td>${trade.ticks}</td>
+                        <td>${formatDate(trade.timestamp)}</td>
+                        <td><span class="status-badge ${resultClass}">${statusText}</span></td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                });
+            }
+
+            function updateStatsCards() {
+                const wins = tradeHistory.filter(t => t.status === 'win').length;
+                const losses = tradeHistory.filter(t => t.status === 'loss').length;
+                const totalTrades = tradeHistory.length;
+                const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : 0;
+                const totalProfit = tradeHistory.reduce((sum, trade) => sum + (trade.result || 0), 0);
+
+                document.getElementById('totalWins').textContent = wins;
+                document.getElementById('totalLosses').textContent = losses;
+                document.getElementById('winRate').textContent = `${winRate}%`;
+                document.getElementById('totalProfit').textContent = `$${totalProfit.toFixed(2)}`;
+            }
+
+            function setupHistoryEvents() {
+                // Filtros
+                const periodFilter = document.getElementById('periodFilter');
+                const symbolFilter = document.getElementById('symbolFilter');
+                const resultFilter = document.getElementById('resultFilter');
+                const exportBtn = document.getElementById('exportBtn');
+
+                [periodFilter, symbolFilter, resultFilter].forEach(filter => {
+                    filter.addEventListener('change', applyFilters);
+                });
+
+                // Exportar dados
+                exportBtn.addEventListener('click', exportToCSV);
+            }
+
+            function applyFilters() {
+                const period = document.getElementById('periodFilter').value;
+                const symbol = document.getElementById('symbolFilter').value;
+                const result = document.getElementById('resultFilter').value;
+
+                filteredHistory = tradeHistory.filter(trade => {
+                    // Filtro de período
+                    if (period !== 'all') {
+                        const tradeDate = new Date(trade.timestamp);
+                        const now = new Date();
+                        let periodStart = new Date();
+
+                        switch (period) {
+                            case 'today':
+                                periodStart.setHours(0, 0, 0, 0);
+                                break;
+                            case '7days':
+                                periodStart.setDate(now.getDate() - 7);
+                                break;
+                            case '30days':
+                                periodStart.setDate(now.getDate() - 30);
+                                break;
+                        }
+
+                        if (tradeDate < periodStart) return false;
+                    }
+
+                    // Filtro de símbolo
+                    if (symbol !== 'all' && trade.symbol !== symbol) return false;
+
+                    // Filtro de resultado
+                    if (result !== 'all' && trade.status !== result) return false;
+
+                    return true;
+                });
+
+                updateHistoryTable();
+                updateStatsCards();
+            }
+
+            function exportToCSV() {
+                if (filteredHistory.length === 0) {
+                    showNotification('Nenhum dado para exportar', 'warning');
+                    return;
+                }
+
+                const headers = ['ID', 'Símbolo', 'Tipo', 'Taxa Crescimento', 'Valor', 'Resultado', 'Ticks', 'Data', 'Status'];
+                const csvData = filteredHistory.map(trade => [
+                    trade.id,
+                    trade.symbol,
+                    'Accumulator',
+                    `${(trade.growth_rate * 100).toFixed(1)}%`,
+                    `$${trade.amount.toFixed(2)}`,
+                    trade.result > 0 ? `+$${trade.result.toFixed(2)}` : `-$${Math.abs(trade.result).toFixed(2)}`,
+                    trade.ticks,
+                    formatDate(trade.timestamp),
+                    trade.status === 'win' ? 'Lucro' : trade.status === 'loss' ? 'Perda' : 'Aberto'
+                ]);
+
+                const csvContent = [headers, ...csvData]
+                    .map(row => row.map(field => `"${field}"`).join(','))
+                    .join('\n');
+
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `accumulator-history-${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+
+                showNotification('Histórico exportado com sucesso', 'success');
+            }
+
+            function formatDate(timestamp) {
+                const date = new Date(timestamp);
+                return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR');
+            }
+
+            function simulateAPILoad() {
+                return new Promise(resolve => setTimeout(resolve, 1500));
+            }
+
+            // Expor funções para o script principal
+            window.loadTradeHistory = loadTradeHistory;
+        });
+    </script>
+</body>
+</html>
