@@ -23,7 +23,34 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, validator
 import secrets
+# ==================== CONFIGURAÇÃO DE PATHS INTELIGENTE ====================
+def get_project_root():
+    """Encontra a raiz do projeto automaticamente - funciona em qualquer ambiente"""
+    current_file = os.path.abspath(__file__)
+    current_dir = os.path.dirname(current_file)
+    
+    # Debug: verificar onde estamos
+    print(f"📁 Diretório atual: {current_dir}")
+    print(f"📁 Nome do diretório: {os.path.basename(current_dir)}")
+    
+    # Se estamos em backend/, sobe um nível para a raiz
+    if os.path.basename(current_dir) == 'backend':
+        project_root = os.path.dirname(current_dir)
+        print(f"🎯 Detectado: Em pasta backend, raiz do projeto: {project_root}")
+    else:
+        # Se já estamos na raiz (Render)
+        project_root = current_dir
+        print(f"🎯 Detectado: Na raiz do projeto: {project_root}")
+    
+    return project_root
 
+PROJECT_ROOT = get_project_root()
+FRONTEND_PATH = os.path.join(PROJECT_ROOT, "frontend")
+
+print(f"🚀 Frontend path: {FRONTEND_PATH}")
+print(f"🚀 Project root: {PROJECT_ROOT}")
+
+# ==================== FIM DOS CAMINHOS INTELIGENTES ====================
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -42,7 +69,6 @@ IS_PRODUCTION = ENVIRONMENT == "production"
 DERIV_APP_ID = os.getenv("DERIV_APP_ID")
 DERIV_REDIRECT_URL = os.getenv("DERIV_REDIRECT_URL")
 DERIV_API_URL = os.getenv("DERIV_API_URL", "wss://ws.deriv.com/websockets/v3")
-FRONTEND_PATH = "frontend"  # Ajustado para Render
 SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_EMAIL = os.getenv("SMTP_EMAIL")
