@@ -4,7 +4,7 @@ python-dotenv==1.1.1
 websockets==10.3
 aiohttp==3.12.15
 python-deriv-api==0.1.6
-pydantic==2.11.9
+pydantic==1.8.1
 scikit-learn==1.7.2
 numpy==2.3.3
 spacy==3.8.7
