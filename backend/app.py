@@ -10,8 +10,8 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from typing import Dict, Any, List, Optional
 import smtplib
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import logging
 import functools
 import time
@@ -866,7 +866,7 @@ async def send_contact_email(contact_data: dict):
             logger.info(f"📧 Contato simulado: {contact_data}")
             return
 
-        message = MimeMultipart()
+        message = MIMEMultipart()
         message["From"] = SMTP_EMAIL
         message["To"] = "suporte@financeclick.com"
         message["Subject"] = f"FinanceClick - {contact_data['subject']} - {contact_data['priority']}"
@@ -885,7 +885,7 @@ async def send_contact_email(contact_data: dict):
         Timestamp: {contact_data['timestamp']}
         """
         
-        message.attach(MimeText(body, "plain"))
+        message.attach(MIMEText(body, "plain"))
         
         # Enviar email com timeout
         try:
