@@ -10,11 +10,17 @@ jobs:
   prepare-and-deploy:
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: write
+      actions: read
+      checks: read
+    
     steps:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
         
     - name: 🐍 Set up Python
       uses: actions/setup-python@v4
@@ -40,13 +46,12 @@ jobs:
           echo "⚠️ risk_model.pkl não encontrado, continuando..."
         fi
         
-        # Verificar se runtime.txt existe, se não criar
-        if [ ! -f "runtime.txt" ]; then
-          echo "python-3.12.0" > runtime.txt
-          echo "✅ runtime.txt criado"
-        else
+        # ✅ APENAS VERIFICAR se runtime.txt existe (não criar)
+        if [ -f "runtime.txt" ]; then
           echo "✅ runtime.txt já existe - mantido"
           cat runtime.txt
+        else
+          echo "ℹ️ runtime.txt não encontrado, usando padrão do Render"
         fi
         
         # Listar arquivos na raiz para verificação
@@ -89,9 +94,10 @@ jobs:
           git add risk_model.pkl
         fi
         
-        # Adicionar runtime.txt apenas se foi criado agora
-        if [ ! -f "runtime.txt" ]; then
+        # ✅ CORREÇÃO: Adicionar runtime.txt se ele JÁ EXISTIR
+        if [ -f "runtime.txt" ]; then
           git add runtime.txt
+          echo "✅ runtime.txt adicionado ao commit"
         fi
         
         # Fazer commit apenas se houver mudanças
@@ -99,11 +105,9 @@ jobs:
           echo "⚠️ Nenhuma mudança para commit"
         else
           git commit -m "🤖 Auto-deploy: Copied backend files to root for Render [skip ci]"
-          git push
+          git push origin HEAD:master
           echo "✅ Mudanças commitadas e enviadas"
         fi
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
     - name: 🎉 Deploy Ready
       run: |
