@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
 
     // ----------------------------------------------------
-    // NOVO: LÓGICA PARA DESTACAR O LINK ATIVO (.active)
+    // LÓGICA PARA DESTACAR O LINK ATIVO (.active)
     // ----------------------------------------------------
     function highlightActiveLink() {
         if (!mainNav) return;
@@ -37,11 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    // ----------------------------------------------------
-    // FIM DA LÓGICA ACTIVE LINK
-    // ----------------------------------------------------
 
-    // 3. Toggle do Menu Hamburguer (mantido da versão original)
+    // 3. Toggle do Menu Hamburguer
     if (menuToggle && mainNav) {
         menuToggle.addEventListener('click', () => {
             mainNav.classList.toggle('open');
@@ -439,14 +436,148 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    // 9. Sistema de Notificações (mantido)
+    // 9. Sistema de Notificações (COMPLETAMENTE IMPLEMENTADO)
     function showNotification(message, type = 'info') {
-        // ... (código showNotification) ...
+        // Criar elemento de notificação
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()">&times;</button>
+        `;
+
+        // Estilos para a notificação
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            z-index: 10000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-width: 300px;
+            max-width: 400px;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-family: inherit;
+        `;
+
+        // Cores baseadas no tipo
+        const colors = {
+            success: '#4CAF50',
+            error: '#f44336',
+            warning: '#ff9800',
+            info: '#2196F3'
+        };
+        notification.style.backgroundColor = colors[type] || colors.info;
+
+        // Adicionar ao body
+        document.body.appendChild(notification);
+
+        // Remover automaticamente após 5 segundos
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+
+        // Adicionar estilos CSS se não existirem
+        if (!document.getElementById('notification-styles')) {
+            const styles = document.createElement('style');
+            styles.id = 'notification-styles';
+            styles.textContent = `
+                @keyframes slideIn {
+                    from { 
+                        transform: translateX(100%); 
+                        opacity: 0; 
+                    }
+                    to { 
+                        transform: translateX(0); 
+                        opacity: 1; 
+                    }
+                }
+                
+                .notification button {
+                    background: none;
+                    border: none;
+                    color: white;
+                    font-size: 18px;
+                    cursor: pointer;
+                    margin-left: 10px;
+                    padding: 0;
+                    width: 20px;
+                    height: 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                
+                .notification button:hover {
+                    opacity: 0.8;
+                }
+            `;
+            document.head.appendChild(styles);
+        }
     }
 
-    // 10. Sistema do Chatbot (mantido)
+    // 10. Sistema do Chatbot (COMPLETAMENTE IMPLEMENTADO)
     function setupChatbot() {
-        // ... (código setupChatbot) ...
+        const chatInput = document.getElementById('chatInput');
+        const sendChatBtn = document.getElementById('sendChatBtn');
+        const chatMessages = document.getElementById('chatMessages');
+
+        if (!chatInput || !sendChatBtn || !chatMessages) return;
+
+        function addMessage(message, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${isUser ? 'user-message' : 'bot-message'}`;
+            messageDiv.textContent = message;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const query = chatInput.value.trim();
+            if (!query) return;
+
+            // Adicionar mensagem do usuário
+            addMessage(query, true);
+            chatInput.value = '';
+
+            try {
+                const response = await fetch('/api/chatbot/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    addMessage(data.response);
+                } else {
+                    addMessage('Desculpe, houve um erro ao processar sua pergunta. Tente novamente.');
+                }
+            } catch (error) {
+                console.error('Erro no chatbot:', error);
+                addMessage('Desculpe, estou tendo problemas para me conectar. Verifique sua conexão.');
+            }
+        }
+
+        // Event listeners
+        sendChatBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Focar no input quando o chatbot for aberto
+        chatInput.focus();
     }
 
     // 11. Funções de Utilidade
@@ -486,12 +617,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentUser) {
                     await updateAccountBalance();
                     await checkRobotStatus();
+                    await loadMarketAnalysis();
                 }
             }, 30000);
         }
     }
 
-    // 12. Acordeão (mantido)
+    // 12. Acordeão
     const accordionHeaders = document.querySelectorAll('.accordion-header');
     
     if (accordionHeaders.length > 0) {
@@ -499,106 +631,23 @@ document.addEventListener('DOMContentLoaded', () => {
             header.addEventListener('click', () => {
                 const content = header.nextElementSibling;
                 
+                // Fechar todos os outros
                 accordionHeaders.forEach(h => {
                     if (h !== header) {
+                        h.classList.remove('active');
                         h.nextElementSibling.classList.remove('open');
                     }
                 });
 
+                // Alternar o atual
+                header.classList.toggle('active');
                 content.classList.toggle('open');
             });
         });
     }
 
-    // Adicionar estilos CSS para componentes dinâmicos (mantido)
-    const dynamicStyles = `
-        <style>
-            /* ... (Estilos CSS dinâmicos) ... */
-            .notification {
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 20px;
-                border-radius: 5px;
-                color: white;
-                z-index: 1000;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                min-width: 300px;
-                max-width: 400px;
-                animation: slideIn 0.3s ease;
-            }
-            
-            .notification.success { background: #4CAF50; }
-            .notification.error { background: #f44336; }
-            .notification.warning { background: #ff9800; }
-            .notification.info { background: #2196F3; }
-            
-            .notification button {
-                background: none;
-                border: none;
-                color: white;
-                font-size: 18px;
-                cursor: pointer;
-                margin-left: 10px;
-            }
-            
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-            
-            .status.active { color: #4CAF50; }
-            .status { color: #666; }
-            
-            .pulse {
-                animation: pulse 1.5s infinite;
-            }
-            
-            @keyframes pulse {
-                0% { opacity: 1; }
-                50% { opacity: 0.5; }
-                100% { opacity: 1; }
-            }
-            
-            .analysis-card, .contract-card, .proposal-info {
-                background: #1a1a1a; /* Ajustado para melhor integração com Dark Mode */
-                color: #FFFFFF;
-                padding: 15px;
-                border-radius: 5px;
-                margin: 10px 0;
-            }
-            
-            .metric {
-                display: flex;
-                justify-content: space-between;
-                margin: 5px 0;
-            }
-            
-            .value.high { color: #4CAF50; }
-            .value.medium { color: #ff9800; }
-            .value.low { color: #f44336; }
-            
-            .chat-message {
-                padding: 10px;
-                margin: 5px 0;
-                border-radius: 5px;
-            }
-            
-            .user-message {
-                background: #2a2a2a; /* Ajustado para Dark Mode */
-                color: #FFFFFF;
-                text-align: right;
-                margin-left: auto;
-            }
-            
-            .bot-message {
-                background: #3a3a3a; /* Ajustado para Dark Mode */
-                color: #FFFFFF;
-            }
-        </style>
-    `;
-    
-    document.head.insertAdjacentHTML('beforeend', dynamicStyles);
+    // Expor variáveis globais para outros scripts
+    window.currentUser = currentUser;
+    window.isRobotActive = isRobotActive;
+    window.showNotification = showNotification;
 });

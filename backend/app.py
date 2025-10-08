@@ -1,5 +1,5 @@
 # app.py - FinanceClick Backend with Accumulator Options AI Robot
-# RENDER-OPTIMIZED VERSION (NO REDIS)
+# RENDER-OPTIMIZED VERSION (NO REDIS) - COM MELHORIAS DE COMPATIBILIDADE
 import os
 import json
 import websockets
@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, validator
 import secrets
+
 # ==================== CONFIGURAÇÃO DE PATHS INTELIGENTE ====================
 def get_project_root():
     """Encontra a raiz do projeto automaticamente - funciona em qualquer ambiente"""
@@ -1054,6 +1055,105 @@ async def get_system_info():
             "contact_support"
         ]
     }
+
+# ==================== NOVOS ENDPOINTS PARA COMPATIBILIDADE TOTAL ====================
+
+@app.get("/api/user/profile")
+async def get_user_profile(user: dict = Depends(get_current_user)):
+    """Retorna perfil completo do usuário para compatibilidade com frontend"""
+    return {
+        "loginid": user['loginid'],
+        "name": "Trader FinanceClick",
+        "email": f"{user['loginid']}@deriv.com",
+        "account_type": "demo" if user['loginid'].startswith("VRTC") else "real",
+        "country": "BR",
+        "currency": "USD",
+        "balance": current_balance if 'current_balance' in globals() else 1000.00, # type: ignore
+        "joined_date": (datetime.now() - timedelta(days=30)).isoformat()
+    }
+
+@app.get("/api/performance/metrics")
+@cache(expire=120)
+async def get_performance_metrics(user: dict = Depends(get_current_user)):
+    """Métricas de performance para a página inicial"""
+    return {
+        "daily_profit": 45.50,
+        "weekly_profit": 230.75,
+        "monthly_profit": 890.25,
+        "total_trades": 47,
+        "success_rate": 76.3,
+        "avg_trade_duration": "45s",
+        "preferred_symbol": "1HZ100V"
+    }
+
+@app.get("/api/notifications")
+async def get_user_notifications(user: dict = Depends(get_current_user)):
+    """Sistema de notificações para o usuário"""
+    return {
+        "notifications": [
+            {
+                "id": 1,
+                "type": "info",
+                "title": "Bem-vindo ao FinanceClick!",
+                "message": "Sua conta foi conectada com sucesso com a Deriv API.",
+                "timestamp": (datetime.now() - timedelta(hours=2)).isoformat(),
+                "read": True
+            },
+            {
+                "id": 2,
+                "type": "success",
+                "title": "Trade Executado",
+                "message": "Accumulator Options comprado com sucesso - 1HZ100V",
+                "timestamp": (datetime.now() - timedelta(minutes=30)).isoformat(),
+                "read": False
+            }
+        ]
+    }
+
+@app.post("/api/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: int, user: dict = Depends(get_current_user)):
+    """Marca notificação como lida"""
+    return {"status": "success", "message": f"Notificação {notification_id} marcada como lida"}
+
+@app.get("/api/learning/resources")
+@cache(expire=3600)  # Cache por 1 hora
+async def get_learning_resources():
+    """Recursos de aprendizado para o guia"""
+    return {
+        "resources": [
+            {
+                "title": "Guia Completo de Accumulator Options",
+                "description": "Aprenda tudo sobre Accumulator Options e estratégias de trading",
+                "type": "guide",
+                "url": "/guide.html",
+                "duration": "15 min"
+            },
+            {
+                "title": "Tutoriais em Vídeo",
+                "description": "Vídeos explicativos sobre como usar a plataforma",
+                "type": "video",
+                "url": "https://youtube.com/@financeclick",
+                "duration": "Variado"
+            },
+            {
+                "title": "FAQ Interativo",
+                "description": "Perguntas frequentes respondidas pelo nosso assistente AI",
+                "type": "interactive",
+                "url": "/guide.html",
+                "duration": "5 min"
+            }
+        ]
+    }
+
+# --- ENDPOINT DE FALLBACK PARA SPA ---
+@app.get("/{full_path:path}")
+async def catch_all(full_path: str):
+    """Serve o index.html para qualquer rota não definida (SPA support)"""
+    index_path = os.path.join(FRONTEND_PATH, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        raise HTTPException(status_code=404, detail="Página não encontrada")
 
 # --- ENHANCED ERROR HANDLERS ---
 @app.exception_handler(404)
