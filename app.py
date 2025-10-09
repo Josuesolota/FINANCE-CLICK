@@ -25,31 +25,31 @@ from pydantic import BaseModel, EmailStr, validator
 import secrets
 
 # ==================== CONFIGURAÇÃO DE PATHS INTELIGENTE ====================
-def get_project_root():
-    """Encontra a raiz do projeto automaticamente - funciona em qualquer ambiente"""
+def get_frontend_path():
+    """Configuração robusta para encontrar a pasta frontend no Render"""
     current_file = os.path.abspath(__file__)
     current_dir = os.path.dirname(current_file)
     
-    # Debug: verificar onde estamos
-    print(f"📁 Diretório atual: {current_dir}")
-    print(f"📁 Nome do diretório: {os.path.basename(current_dir)}")
+    # Tentar diferentes estruturas de pasta
+    possible_paths = [
+        os.path.join(current_dir, "frontend"),  # Estrutura local
+        os.path.join(current_dir, "../frontend"),  # Render com estrutura separada
+        current_dir,  # Se os arquivos estiverem na raiz
+    ]
     
-    # Se estamos em backend/, sobe um nível para a raiz
-    if os.path.basename(current_dir) == 'backend':
-        project_root = os.path.dirname(current_dir)
-        print(f"🎯 Detectado: Em pasta backend, raiz do projeto: {project_root}")
-    else:
-        # Se já estamos na raiz (Render)
-        project_root = current_dir
-        print(f"🎯 Detectado: Na raiz do projeto: {project_root}")
+    for path in possible_paths:
+        if os.path.exists(path) and os.path.exists(os.path.join(path, "index.html")):
+            print(f"✅ Frontend encontrado em: {path}")
+            return path
     
-    return project_root
+    # Fallback: criar estrutura mínima se não encontrar
+    print("⚠️  Pasta frontend não encontrada, usando diretório atual")
+    return current_dir
 
-PROJECT_ROOT = get_project_root()
-FRONTEND_PATH = os.path.join(PROJECT_ROOT, "frontend")
+FRONTEND_PATH = get_frontend_path()
+print(f"🚀 Frontend path final: {FRONTEND_PATH}")
 
 print(f"🚀 Frontend path: {FRONTEND_PATH}")
-print(f"🚀 Project root: {PROJECT_ROOT}")
 
 # ==================== FIM DOS CAMINHOS INTELIGENTES ====================
 # Configure logging
@@ -199,7 +199,7 @@ app.add_middleware(
     max_age=600,
 )
 
-app.mount("/static", StaticFiles(directory=FRONTEND_PATH), name="static")
+app.mount("/assets", StaticFiles(directory=FRONTEND_PATH), name="assets")
 
 # --- ENHANCED PYDANTIC MODELS WITH VALIDATION ---
 class AuthRequest(BaseModel):
@@ -436,18 +436,18 @@ def analyze_market_risk(symbol: str, strategy: str) -> MarketAnalysis:
 async def serve_index():
     return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
 
-@app.get("/{page}", include_in_schema=False)
-async def serve_html_page(page: str):
+#@app.get("/{page}", include_in_schema=False)
+#async def serve_html_page(page: str):
     # Security: Prevent directory traversal
-    if ".." in page or page.startswith("/"):
-        raise HTTPException(status_code=400, detail="Invalid page request")
+#    if ".." in page or page.startswith("/"):
+    #    raise HTTPException(status_code=400, detail="Invalid page request")
         
-    if not page.endswith(".html"):
-        page = f"{page}.html"
-    file_path = os.path.join(FRONTEND_PATH, page)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Página não encontrada")
-    return FileResponse(file_path)
+   # if not page.endswith(".html"):
+    #    page = f"{page}.html"
+    #file_path = os.path.join(FRONTEND_PATH, page)
+   # if not os.path.exists(file_path):
+   #     raise HTTPException(status_code=404, detail="Página não encontrada")
+   # return FileResponse(file_path)
 
 # --- ENHANCED AUTH ENDPOINTS ---
 @app.get("/auth/login")
@@ -1187,6 +1187,43 @@ async def unauthorized_handler(request: Request, exc: HTTPException):
         status_code=401,
         content={"detail": "Não autorizado - faça login primeiro"}
     )
+
+# --- ENDPOINT DE DEBUG PARA VERIFICAR ARQUIVOS ---
+@app.get("/api/debug/files")
+async def debug_files():
+    """Endpoint para debug - lista arquivos disponíveis"""
+    files = []
+    if os.path.exists(FRONTEND_PATH):
+        for file in os.listdir(FRONTEND_PATH):
+            files.append(file)
+    return {
+        "frontend_path": FRONTEND_PATH,
+        "files": files,
+        "exists_index": os.path.exists(os.path.join(FRONTEND_PATH, "index.html")),
+        "exists_style": os.path.exists(os.path.join(FRONTEND_PATH, "style.css")),
+        "exists_script": os.path.exists(os.path.join(FRONTEND_PATH, "script.js"))
+    }
+
+# --- ENDPOINT PARA SERVIR TODOS OS ARQUIVOS ESTÁTICOS ---
+@app.get("/{filename:path}")
+async def serve_static_files(filename: str):
+    """Serve arquivos estáticos - FALLBACK para Render"""
+    file_path = os.path.join(FRONTEND_PATH, filename)
+    
+    # Servir arquivos específicos
+    if filename == "" or filename == "index.html":
+        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
+    elif filename.endswith(".css") and os.path.exists(file_path):
+        return FileResponse(file_path, media_type="text/css")
+    elif filename.endswith(".js") and os.path.exists(file_path):
+        return FileResponse(file_path, media_type="application/javascript")
+    elif filename.endswith(".html") and os.path.exists(file_path):
+        return FileResponse(file_path)
+    elif os.path.exists(file_path):
+        return FileResponse(file_path)
+    else:
+        # Fallback para SPA
+        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
 
 # --- PRODUCTION INITIALIZATION ---
 if __name__ == "__main__":
