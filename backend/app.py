@@ -1,5 +1,5 @@
 # app.py - FinanceClick Backend with Accumulator Options AI Robot
-# RENDER-OPTIMIZED VERSION - ADAPTADO PARA ESTRUTURA FINAL NO RENDER
+# RENDER-OPTIMIZED VERSION - ARQUIVOS NA RAIZ
 import os
 import json
 import websockets
@@ -24,34 +24,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, validator
 import secrets
 
-# ==================== CONFIGURAÇÃO DE PATHS PARA RENDER ====================
-def get_project_root():
-    """Encontra a raiz do projeto para o Render"""
-    current_file = os.path.abspath(__file__)
-    current_dir = os.path.dirname(current_file)
-    
-    # No Render, estamos na raiz do projeto
-    project_root = current_dir
-    
-    # Verificar se a pasta frontend existe
-    frontend_path = os.path.join(project_root, "frontend")
-    if os.path.exists(frontend_path):
-        print(f"✅ Frontend encontrado em: {frontend_path}")
-    else:
-        print(f"⚠️ Pasta frontend não encontrada em: {frontend_path}")
-        # Listar o que existe no diretório
-        print("📁 Conteúdo do diretório atual:")
-        for item in os.listdir(project_root):
-            print(f"   - {item}")
-    
-    return project_root
+# ==================== CONFIGURAÇÃO PARA RENDER (ARQUIVOS NA RAIZ) ====================
 
-PROJECT_ROOT = get_project_root()
-FRONTEND_PATH = os.path.join(PROJECT_ROOT, "frontend")
-
+# No Render, todos os arquivos estão na raiz
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 print(f"🚀 Iniciando FinanceClick no Render")
 print(f"📁 Project root: {PROJECT_ROOT}")
-print(f"📁 Frontend path: {FRONTEND_PATH}")
+
+# Listar arquivos na raiz para debug
+print("📁 Arquivos na raiz do projeto:")
+for item in os.listdir(PROJECT_ROOT):
+    if item.endswith(('.html', '.css', '.js', '.py', '.txt', '.pkl')):
+        print(f"   - {item}")
 
 # ==================== FIM DOS CAMINHOS ====================
 
@@ -143,8 +127,8 @@ def load_models():
         logger.warning(f"⚠️ risk_model.pkl não carregado: {e}")
 
     try:
-        # No Render, knowledge_base.json está em frontend/
-        knowledge_path = os.path.join(FRONTEND_PATH, 'knowledge_base.json')
+        # No Render, knowledge_base.json está na RAIZ
+        knowledge_path = os.path.join(PROJECT_ROOT, 'knowledge_base.json')
         with open(knowledge_path, "r", encoding="utf-8") as f:
             KNOWLEDGE_BASE = json.load(f)
         logger.info("✅ Knowledge base carregada com sucesso")
@@ -205,13 +189,110 @@ app.add_middleware(
     max_age=600,
 )
 
-# --- SERVIÇO DE ARQUIVOS ESTÁTICOS PARA RENDER ---
-# Servir arquivos estáticos do frontend
-if os.path.exists(FRONTEND_PATH):
-    app.mount("/static", StaticFiles(directory=FRONTEND_PATH), name="static")
-    logger.info(f"✅ Static files mounted at /static from {FRONTEND_PATH}")
-else:
-    logger.warning(f"❌ Frontend path not found: {FRONTEND_PATH}")
+# ==================== SERVIÇO DE ARQUIVOS ESTÁTICOS (TUDO NA RAIZ) ====================
+
+# ✅ SERVIR ARQUIVOS ESTÁTICOS INDIVIDUALMENTE DA RAIZ
+
+@app.get("/style.css", include_in_schema=False)
+async def serve_css():
+    """Serve o arquivo CSS da raiz"""
+    css_path = os.path.join(PROJECT_ROOT, "style.css")
+    if os.path.exists(css_path):
+        return FileResponse(css_path, media_type="text/css")
+    else:
+        logger.error(f"❌ CSS não encontrado em: {css_path}")
+        raise HTTPException(status_code=404, detail="CSS file not found")
+
+@app.get("/script.js", include_in_schema=False)
+async def serve_js():
+    """Serve o arquivo JavaScript da raiz"""
+    js_path = os.path.join(PROJECT_ROOT, "script.js")
+    if os.path.exists(js_path):
+        return FileResponse(js_path, media_type="application/javascript")
+    else:
+        logger.error(f"❌ JS não encontrado em: {js_path}")
+        raise HTTPException(status_code=404, detail="JS file not found")
+
+# ✅ SERVIR PÁGINAS HTML DA RAIZ
+
+@app.get("/", include_in_schema=False)
+async def serve_index():
+    """Serve a página inicial"""
+    index_path = os.path.join(PROJECT_ROOT, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        logger.error(f"❌ index.html não encontrado em: {index_path}")
+        raise HTTPException(status_code=404, detail="Home page not found")
+
+@app.get("/dashboard", include_in_schema=False)
+async def serve_dashboard():
+    """Serve a página dashboard"""
+    dashboard_path = os.path.join(PROJECT_ROOT, "dashboard.html")
+    if os.path.exists(dashboard_path):
+        return FileResponse(dashboard_path)
+    else:
+        logger.error(f"❌ dashboard.html não encontrado em: {dashboard_path}")
+        # Fallback para index.html
+        index_path = os.path.join(PROJECT_ROOT, "index.html")
+        return FileResponse(index_path)
+
+@app.get("/history", include_in_schema=False)
+async def serve_history():
+    """Serve a página de histórico"""
+    history_path = os.path.join(PROJECT_ROOT, "history.html")
+    if os.path.exists(history_path):
+        return FileResponse(history_path)
+    else:
+        index_path = os.path.join(PROJECT_ROOT, "index.html")
+        return FileResponse(index_path)
+
+@app.get("/guide", include_in_schema=False)
+async def serve_guide():
+    """Serve a página de guia"""
+    guide_path = os.path.join(PROJECT_ROOT, "guide.html")
+    if os.path.exists(guide_path):
+        return FileResponse(guide_path)
+    else:
+        index_path = os.path.join(PROJECT_ROOT, "index.html")
+        return FileResponse(index_path)
+
+@app.get("/about", include_in_schema=False)
+async def serve_about():
+    """Serve a página sobre"""
+    about_path = os.path.join(PROJECT_ROOT, "about.html")
+    if os.path.exists(about_path):
+        return FileResponse(about_path)
+    else:
+        index_path = os.path.join(PROJECT_ROOT, "index.html")
+        return FileResponse(index_path)
+
+@app.get("/contact", include_in_schema=False)
+async def serve_contact():
+    """Serve a página de contato"""
+    contact_path = os.path.join(PROJECT_ROOT, "contact.html")
+    if os.path.exists(contact_path):
+        return FileResponse(contact_path)
+    else:
+        index_path = os.path.join(PROJECT_ROOT, "index.html")
+        return FileResponse(index_path)
+
+# ✅ FALLBACK PARA SPA
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def catch_all(full_path: str):
+    """Serve o index.html para qualquer rota não definida (SPA support)"""
+    # Tentar servir arquivo diretamente se existir
+    file_path = os.path.join(PROJECT_ROOT, full_path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    
+    # Fallback para index.html
+    index_path = os.path.join(PROJECT_ROOT, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        raise HTTPException(status_code=404, detail="Página não encontrada")
 
 # --- ENHANCED PYDANTIC MODELS WITH VALIDATION ---
 class AuthRequest(BaseModel):
@@ -443,57 +524,6 @@ def analyze_market_risk(symbol: str, strategy: str) -> MarketAnalysis:
         recommended_growth_rate=recommended_growth
     )
 
-# ==================== ROTAS PARA SERVIR O FRONTEND NO RENDER ====================
-
-@app.get("/", include_in_schema=False)
-async def serve_index():
-    """Serve a página inicial"""
-    index_path = os.path.join(FRONTEND_PATH, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    else:
-        raise HTTPException(status_code=404, detail="Página inicial não encontrada")
-
-@app.get("/{page_name}", include_in_schema=False)
-async def serve_frontend_pages(page_name: str):
-    """Serve todas as páginas HTML do frontend"""
-    # Mapeamento de rotas para arquivos
-    page_mapping = {
-        "dashboard": "dashboard.html",
-        "history": "history.html", 
-        "guide": "guide.html",
-        "about": "about.html",
-        "contact": "contact.html"
-    }
-    
-    # Se for uma rota conhecida, serve o arquivo correspondente
-    if page_name in page_mapping:
-        file_path = os.path.join(FRONTEND_PATH, page_mapping[page_name])
-    else:
-        # Tenta servir diretamente pelo nome
-        if not page_name.endswith('.html'):
-            page_name += '.html'
-        file_path = os.path.join(FRONTEND_PATH, page_name)
-    
-    if os.path.exists(file_path):
-        return FileResponse(file_path)
-    else:
-        # Fallback para a página inicial
-        index_path = os.path.join(FRONTEND_PATH, "index.html")
-        if os.path.exists(index_path):
-            return FileResponse(index_path)
-        else:
-            raise HTTPException(status_code=404, detail="Página não encontrada")
-
-@app.get("/assets/{filename:path}", include_in_schema=False)
-async def serve_assets(filename: str):
-    """Serve arquivos estáticos (CSS, JS, etc.)"""
-    assets_path = os.path.join(FRONTEND_PATH, filename)
-    if os.path.exists(assets_path):
-        return FileResponse(assets_path)
-    else:
-        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
-
 # ==================== ROTAS DA API ====================
 
 # --- ENHANCED AUTH ENDPOINTS ---
@@ -612,7 +642,7 @@ async def authorize_with_token(request: AuthRequest, websocket = Depends(get_der
         raise HTTPException(status_code=500, detail=f"Authorization failed: {str(e)}")
 
 @app.get("/api/balance")
-async def get_account_balance(websocket = Depends(get_deriv_connection), user: dict = Depends(get_current_user)):
+async def get_account_balance(user: dict = Depends(get_current_user)):
     """Get account balance"""
     try:
         # Simulação para demonstração - em produção, usar API real
@@ -995,7 +1025,7 @@ async def chatbot_ask(query_data: ChatQuery, request: Request):
     
     # Respostas padrão para Accumulator Options
     accumulator_responses = {
-        "accumulator": "Accumulator Options permitem lucrar com mercados laterais através de crescimento composto. Escolha entre 1-5% de taxa de crescimento.",
+        "accumulator": "Accumulator Options permiten lucrar com mercados laterais através de crescimento composto. Escolha entre 1-5% de taxa de crescimento.",
         "risco": "O risco é limitado ao valor do stake. Você só perde se o preço tocar as barreiras.",
         "estratégia": "Estratégias: Conservadora (1-2%), Moderada (3%), Agressiva (4-5%).",
         "symbols": "Disponível nos índices Volatility: 10, 25, 50, 75 e 100.",
@@ -1133,6 +1163,13 @@ async def get_learning_resources():
 @app.get("/api/health")
 async def health_check():
     """Health check completo da plataforma"""
+    # Verificar se arquivos essenciais existem
+    essential_files = {
+        "index.html": os.path.exists(os.path.join(PROJECT_ROOT, "index.html")),
+        "style.css": os.path.exists(os.path.join(PROJECT_ROOT, "style.css")),
+        "script.js": os.path.exists(os.path.join(PROJECT_ROOT, "script.js")),
+    }
+    
     health_status = {
         "status": "healthy",
         "service": "FinanceClick AI Trading",
@@ -1144,8 +1181,7 @@ async def health_check():
         "contact_messages": len(contact_messages),
         "environment": ENVIRONMENT,
         "version": "2.1.0",
-        "frontend_path": FRONTEND_PATH,
-        "frontend_exists": os.path.exists(FRONTEND_PATH)
+        "files_status": essential_files
     }
     
     return JSONResponse(health_status)
@@ -1171,16 +1207,6 @@ async def get_system_info():
             "contact_support"
         ]
     }
-
-# --- FALLBACK PARA ROTAS NÃO ENCONTRADAS ---
-@app.get("/{full_path:path}", include_in_schema=False)
-async def catch_all(full_path: str):
-    """Serve o index.html para qualquer rota não definida (SPA support)"""
-    index_path = os.path.join(FRONTEND_PATH, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    else:
-        raise HTTPException(status_code=404, detail="Página não encontrada")
 
 # --- ENHANCED ERROR HANDLERS ---
 @app.exception_handler(404)
