@@ -1,5 +1,5 @@
 # app.py - FinanceClick Backend with Accumulator Options AI Robot
-# VERSÃO FINAL CORRIGIDA - ARQUIVOS NA PASTA FRONTEND
+# VERSÃO FINAL CORRIGIDA - FLUXO OAUTH COMPLETO
 import os
 import json
 import websockets
@@ -483,38 +483,68 @@ def analyze_market_risk(symbol: str, strategy: str) -> MarketAnalysis:
 # --- AUTENTICAÇÃO ---
 @app.get("/auth/login")
 async def login_with_deriv():
+    """🔐 CORRIGIDO: Fluxo OAuth completo com todos os parâmetros necessários"""
     import urllib.parse
+    
+    # Verificar se as configurações estão presentes
+    if not DERIV_APP_ID:
+        logger.error("❌ DERIV_APP_ID não configurado")
+        raise HTTPException(status_code=500, detail="Configuração OAuth incompleta")
+    
+    if not DERIV_REDIRECT_URL:
+        logger.error("❌ DERIV_REDIRECT_URL não configurado")
+        raise HTTPException(status_code=500, detail="Configuração OAuth incompleta")
+    
+    # Gerar state para proteção CSRF
     state = secrets.token_urlsafe(16)
+    
+    # Parâmetros OAuth COMPLETOS e CORRETOS
     params = urllib.parse.urlencode({
         "app_id": DERIV_APP_ID,
-        "state": state
+        "l": "pt",  # Idioma português
+        "brand": "deriv",  # Brand da Deriv
+        "redirect_uri": DERIV_REDIRECT_URL,  # ← PARÂMETRO CRÍTICO QUE FALTAVA!
+        "state": state  # Proteção CSRF
     })
+    
     auth_url = f"https://oauth.deriv.com/oauth2/authorize?{params}"
+    
+    logger.info(f"🔐 Redirecting to OAuth URL: {auth_url}")
     return RedirectResponse(auth_url)
 
 @app.get("/auth/callback")
 async def handle_oauth_callback(request: Request):
+    """Processa o callback OAuth da Deriv"""
     try:
         client_ip = request.client.host
         if await rate_limiter.is_rate_limited(f"oauth_{client_ip}", 5, 300):
             raise HTTPException(status_code=429, detail="Too many authentication attempts")
         
         query_params = dict(request.query_params)
+        logger.info(f"📥 OAuth callback recebido: {query_params}")
+        
+        # Verificar se há erro na resposta
+        if "error" in query_params:
+            error_msg = query_params.get("error", "Erro desconhecido")
+            logger.error(f"❌ Erro no OAuth callback: {error_msg}")
+            raise HTTPException(status_code=400, detail=f"Erro de autenticação: {error_msg}")
+        
         accounts = []
         i = 1
         while f"acct{i}" in query_params:
             loginid = query_params.get(f"acct{i}")
             token = query_params.get(f"token{i}")
             
-            account_info = {
-                "loginid": loginid,
-                "token": token,
-                "currency": query_params.get(f"cur{i}"),
-                "account_type": "demo" if loginid.startswith("VRTC") else "real"
-            }
-            accounts.append(account_info)
-            
-            if token:
+            if loginid and token:
+                account_info = {
+                    "loginid": loginid,
+                    "token": token,
+                    "currency": query_params.get(f"cur{i}", "USD"),
+                    "account_type": "demo" if loginid.startswith("VRTC") else "real"
+                }
+                accounts.append(account_info)
+                
+                # Armazenar token ativo
                 active_tokens[loginid] = token
                 session_key = f"session_{loginid}"
                 user_sessions[session_key] = {
@@ -522,19 +552,25 @@ async def handle_oauth_callback(request: Request):
                     'created_at': datetime.now().timestamp(),
                     'last_activity': datetime.now().timestamp()
                 }
+                
+                logger.info(f"✅ Token armazenado para: {loginid}")
             i += 1
         
         if not accounts:
+            logger.error("❌ Nenhuma conta recebida no callback OAuth")
             raise HTTPException(status_code=400, detail="No accounts received")
         
-        logger.info(f"User authenticated: {accounts[0]['loginid']}")
+        logger.info(f"🎉 Usuário autenticado com sucesso: {accounts[0]['loginid']}")
+        
+        # Redirecionar para dashboard após autenticação bem-sucedida
         return RedirectResponse(url="/dashboard", status_code=302)
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"OAuth callback error: {e}")
-        raise HTTPException(status_code=400, detail=f"OAuth callback error: {str(e)}")
+        logger.error(f"❌ Erro no callback OAuth: {e}")
+        # Redirecionar para página inicial em caso de erro
+        return RedirectResponse(url="/", status_code=302)
 
 @app.post("/auth/logout")
 async def logout_user(request: Request):
@@ -549,7 +585,7 @@ async def logout_user(request: Request):
         if session_key in user_sessions:
             del user_sessions[session_key]
             
-        logger.info(f"User logged out: {loginid}")
+        logger.info(f"👋 Usuário fez logout: {loginid}")
         return {"status": "success", "message": "Logout realizado com sucesso"}
     except Exception as e:
         logger.error(f"Logout error: {e}")
