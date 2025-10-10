@@ -11,7 +11,7 @@
 
     <header>
         <a href="index.html" class="logo">FINANCE CLICK</a>
-        
+
         <nav id="mainNav">
             <a href="index.html" class="nav-link">Página Inicial</a>
             <a href="dashboard.html" class="nav-link">Dashboard</a>
@@ -37,7 +37,7 @@
             <div class="hero-section">
                 <h1>Negocie no Piloto Automático. Alcance a Liberdade Financeira.</h1>
                 <p>Conecte-se à Deriv e use o nosso Robô AI inteligente para otimizar seus resultados com Accumulator Options.</p>
-                
+
                 <div id="connectionStatus" class="connection-status">
                     <i class="fas fa-circle"></i>
                     <span>Conectado à Deriv API</span>
@@ -122,20 +122,20 @@
                         A estratégia ideal para mercados laterais com risco limitado e crescimento exponencial
                     </p>
                 </div>
-                
+
                 <div>
                     <div>
                         <div>✓</div>
                         <h4>Risco Limitado</h4>
                         <p>Você só arrisca o valor do stake inicial. Sem surpresas desagradáveis.</p>
                     </div>
-                    
+
                     <div>
                         <div>📈</div>
                         <h4>Crescimento Exponencial</h4>
                         <p>Taxas de 1% a 5% por tick enquanto o preço permanece na faixa.</p>
                     </div>
-                    
+
                     <div>
                         <div>⚡</div>
                         <h4>Resultados Rápidos</h4>
@@ -170,43 +170,36 @@
     </footer>
 
     <script src="/script.js"></script>
-    
+
     <script>
-        // Script específico para a página inicial
         document.addEventListener('DOMContentLoaded', function() {
-            // Atualizar interface baseada no estado de autenticação
             function updateHomePageForAuth(user) {
                 const authWarning = document.getElementById('authWarning');
                 const quickStats = document.getElementById('quickStats');
                 const goToDashboardBtn = document.getElementById('goToDashboardBtn');
                 const connectionStatus = document.getElementById('connectionStatus');
-                
+
                 if (user) {
-                    // Usuário autenticado
                     if (authWarning) authWarning.style.display = 'none';
                     if (quickStats) quickStats.style.display = 'grid';
                     if (goToDashboardBtn) goToDashboardBtn.style.display = 'inline-block';
                     if (connectionStatus) connectionStatus.style.display = 'block';
-                    
-                    // Atualizar estatísticas
+
                     updateHomeStats();
                 } else {
-                    // Usuário não autenticado
                     if (authWarning) authWarning.style.display = 'block';
                     if (quickStats) quickStats.style.display = 'none';
                     if (goToDashboardBtn) goToDashboardBtn.style.display = 'none';
                     if (connectionStatus) connectionStatus.style.display = 'none';
                 }
             }
-            
-            // Atualizar estatísticas da página inicial
+
             async function updateHomeStats() {
                 const robotStatusText = document.getElementById('robotStatusText');
                 const homeBalance = document.getElementById('homeBalance');
                 const performanceMetric = document.getElementById('performanceMetric');
-                
+
                 try {
-                    // Atualizar status do robô
                     const robotStatusResponse = await fetch('/api/robot/status');
                     if (robotStatusResponse.ok) {
                         const robotStatus = await robotStatusResponse.json();
@@ -216,8 +209,7 @@
                                 '<span>● Inativo</span>';
                         }
                     }
-                    
-                    // Atualizar saldo
+
                     const balanceResponse = await fetch('/api/balance');
                     if (balanceResponse.ok) {
                         const balanceData = await balanceResponse.json();
@@ -225,8 +217,7 @@
                             homeBalance.textContent = `$${balanceData.balance.balance?.toFixed(2) || '0.00'}`;
                         }
                     }
-                    
-                    // Atualizar métrica de performance
+
                     const analysisResponse = await fetch('/api/market/analysis?symbol=1HZ100V&strategy=moderate');
                     if (analysisResponse.ok) {
                         const analysis = await analysisResponse.json();
@@ -242,15 +233,13 @@
                     console.error('Erro ao atualizar estatísticas:', error);
                 }
             }
-            
-            // Verificar autenticação periodicamente (a cada 30 segundos)
+
             setInterval(() => {
                 if (window.currentUser) {
                     updateHomeStats();
                 }
             }, 30000);
-            
-            // Expor funções para o script principal
+
             window.updateHomePageForAuth = updateHomePageForAuth;
             window.updateHomeStats = updateHomeStats;
         });
