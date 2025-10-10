@@ -1,3 +1,4 @@
+// script.js - VERSÃO CORRIGIDA PARA RENDER
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Variáveis Globais e Estado da Aplicação
     let currentUser = null;
@@ -55,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 4. Sistema de Autenticação Real com Deriv API
+    // 4. Sistema de Autenticação Corrigido para Render
     async function initializeApp() {
         highlightActiveLink(); // Chamada adicionada para rodar na inicialização
         await checkAuthentication();
@@ -63,18 +64,31 @@ document.addEventListener('DOMContentLoaded', () => {
         setupEventListeners();
     }
 
+    // CORREÇÃO: Função de autenticação robusta
     async function checkAuthentication() {
         try {
+            console.log('🔐 Verificando autenticação...');
             const response = await fetch('/api/me');
+            
+            // Verificar se a resposta é JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.warn('⚠️ Resposta não é JSON, provavelmente não autenticado');
+                updateUINotAuthenticated();
+                return;
+            }
+            
             if (response.ok) {
                 const userData = await response.json();
                 currentUser = userData;
                 updateUIAuthenticated(userData);
+                console.log('✅ Usuário autenticado:', userData.loginid);
             } else {
+                console.log('❌ Não autenticado - status:', response.status);
                 updateUINotAuthenticated();
             }
         } catch (error) {
-            console.error('Erro ao verificar autenticação:', error);
+            console.error('❌ Erro ao verificar autenticação:', error);
             updateUINotAuthenticated();
         }
     }
@@ -98,6 +112,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.getElementById('accountBalance')) {
             updateAccountBalance();
         }
+
+        // Atualizar página inicial se necessário
+        if (window.updateHomePageForAuth) {
+            window.updateHomePageForAuth(userData);
+        }
     }
 
     function updateUINotAuthenticated() {
@@ -109,22 +128,39 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userInfoElement) {
             userInfoElement.innerHTML = '';
         }
+
+        // Atualizar página inicial se necessário
+        if (window.updateHomePageForAuth) {
+            window.updateHomePageForAuth(null);
+        }
     }
 
     function handleLogin() {
+        console.log('🔐 Redirecionando para login...');
         window.location.href = '/auth/login';
     }
 
     async function handleLogout() {
         try {
-            await fetch('/auth/logout', { method: 'POST' });
-            currentUser = null;
-            updateUINotAuthenticated();
-            showNotification('Logout realizado com sucesso!', 'success');
+            console.log('👋 Executando logout...');
+            const response = await fetch('/auth/logout', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             
-            // Redirecionar para página inicial se estiver no dashboard
-            if (window.location.pathname.includes('dashboard')) {
-                setTimeout(() => window.location.href = '/', 1000);
+            if (response.ok) {
+                currentUser = null;
+                updateUINotAuthenticated();
+                showNotification('Logout realizado com sucesso!', 'success');
+                
+                // Redirecionar para página inicial se estiver no dashboard
+                if (window.location.pathname.includes('dashboard')) {
+                    setTimeout(() => window.location.href = '/', 1000);
+                }
+            } else {
+                throw new Error('Logout falhou');
             }
         } catch (error) {
             console.error('Erro no logout:', error);
@@ -132,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 5. Sistema de Robô AI para Accumulator Options
+    // 5. Sistema de Robô AI para Accumulator Options - CORRIGIDO
     function setupRobotAIControls() {
         const toggleRobotBtn = document.getElementById('toggleRobotBtn');
         const aiStatus = document.getElementById('aiStatus');
@@ -172,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
+                console.log('🤖 Ativando/desativando robô...');
                 const response = await fetch('/api/robot/toggle', {
                     method: 'POST',
                     headers: {
@@ -180,8 +217,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify(config)
                 });
 
+                // Verificar se a resposta é JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('Resposta do servidor não é JSON');
+                }
+
+                const result = await response.json();
+
                 if (response.ok) {
-                    const result = await response.json();
                     isRobotActive = result.status === 'running';
                     updateRobotUI(isRobotActive);
                     showNotification(
@@ -196,8 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         displayMarketAnalysis(result.analysis);
                     }
                 } else {
-                    const error = await response.json();
-                    showNotification(`Erro: ${error.detail}`, 'error');
+                    showNotification(`Erro: ${result.detail || 'Erro desconhecido'}`, 'error');
                 }
             } catch (error) {
                 console.error('Erro ao alternar robô:', error);
@@ -209,6 +252,14 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkRobotStatus() {
         try {
             const response = await fetch('/api/robot/status');
+            
+            // Verificar se a resposta é JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.warn('⚠️ Resposta do status do robô não é JSON');
+                return;
+            }
+            
             if (response.ok) {
                 const status = await response.json();
                 isRobotActive = status.active;
@@ -238,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 6. Sistema de Trading com Accumulator Options
+    // 6. Sistema de Trading com Accumulator Options - CORRIGIDO
     function setupAccumulatorTrading() {
         const symbolSelect = document.getElementById('symbolSelect');
         const growthRateSelect = document.getElementById('growthRate');
@@ -255,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Configurar botão de proposta
         if (proposalButton && proposalResult) {
             proposalButton.addEventListener('click', async () => {
+                console.log('📊 Obtendo proposta...');
                 const proposal = await getAccumulatorProposal();
                 if (proposal) {
                     proposalResult.innerHTML = `
@@ -262,6 +314,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             <h4>Proposta Recebida</h4>
                             <p>Payout Potencial: $${proposal.proposal?.display_value || 'N/A'}</p>
                             <p>Taxa de Crescimento: ${(growthRateSelect.value * 100)}%</p>
+                        </div>
+                    `;
+                } else {
+                    proposalResult.innerHTML = `
+                        <div class="proposal-info">
+                            <h4>Erro ao Obter Proposta</h4>
+                            <p>Não foi possível obter a proposta no momento.</p>
                         </div>
                     `;
                 }
@@ -285,6 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 showNotification('Executando compra...', 'info');
+                console.log('🛒 Executando compra...', tradeData);
                 
                 const response = await fetch('/api/accumulators/buy', {
                     method: 'POST',
@@ -294,11 +354,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify(tradeData)
                 });
 
+                // Verificar se a resposta é JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('Resposta do servidor não é JSON');
+                }
+
                 const result = await response.json();
 
                 if (response.ok) {
                     showNotification('Compra executada com sucesso!', 'success');
-                    console.log('Resultado da compra:', result);
+                    console.log('✅ Resultado da compra:', result);
                     
                     // Atualizar saldo após compra
                     await updateAccountBalance();
@@ -308,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         displayContractDetails(result.buy);
                     }
                 } else {
-                    showNotification(`Erro na compra: ${result.detail}`, 'error');
+                    showNotification(`Erro na compra: ${result.detail || 'Erro desconhecido'}`, 'error');
                 }
             } catch (error) {
                 console.error('Erro na compra:', error);
@@ -322,7 +388,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!symbolSelect) return;
 
         try {
+            console.log('📈 Carregando símbolos...');
             const response = await fetch('/api/symbols/accumulators');
+            
+            // Verificar se a resposta é JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.warn('⚠️ Resposta de símbolos não é JSON');
+                return;
+            }
+            
             if (response.ok) {
                 const data = await response.json();
                 symbolSelect.innerHTML = '';
@@ -333,6 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     option.textContent = `${symbol.display_name} (${symbol.symbol})`;
                     symbolSelect.appendChild(option);
                 });
+                console.log('✅ Símbolos carregados:', data.accumulator_symbols.length);
             }
         } catch (error) {
             console.error('Erro ao carregar símbolos:', error);
@@ -361,6 +437,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(proposalData)
             });
 
+            // Verificar se a resposta é JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.warn('⚠️ Resposta de proposta não é JSON');
+                return null;
+            }
+
             if (response.ok) {
                 return await response.json();
             }
@@ -370,20 +453,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    // 7. Sistema de Saldo e Dados da Conta
+    // 7. Sistema de Saldo e Dados da Conta - CORRIGIDO
     async function updateAccountBalance() {
         const balanceElement = document.getElementById('accountBalance');
         if (!balanceElement) return;
 
         try {
+            console.log('💰 Atualizando saldo...');
             const response = await fetch('/api/balance');
+            
+            // Verificar se a resposta é JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.warn('⚠️ Resposta de saldo não é JSON');
+                balanceElement.textContent = '$---.--';
+                return;
+            }
+            
             if (response.ok) {
                 const data = await response.json();
                 if (data.balance) {
                     currentBalance = data.balance.balance;
                     balanceElement.textContent = 
                         `$${currentBalance.toFixed(2)} ${data.balance.currency || 'USD'}`;
+                    console.log('✅ Saldo atualizado:', currentBalance);
                 }
+            } else {
+                balanceElement.textContent = 'Erro ao carregar';
             }
         } catch (error) {
             console.error('Erro ao atualizar saldo:', error);
@@ -391,16 +487,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 8. Sistema de Análise de Mercado
+    // 8. Sistema de Análise de Mercado - CORRIGIDO
     async function loadMarketAnalysis() {
         const analysisElement = document.getElementById('marketAnalysis');
         if (!analysisElement) return;
 
         try {
+            console.log('📊 Carregando análise de mercado...');
             const response = await fetch('/api/market/analysis?symbol=1HZ100V&strategy=moderate');
+            
+            // Verificar se a resposta é JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.warn('⚠️ Resposta de análise não é JSON');
+                return;
+            }
+            
             if (response.ok) {
                 const analysis = await response.json();
                 displayMarketAnalysis(analysis);
+                console.log('✅ Análise carregada');
             }
         } catch (error) {
             console.error('Erro ao carregar análise:', error);
@@ -436,7 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    // 9. Sistema de Notificações (COMPLETAMENTE IMPLEMENTADO)
+    // 9. Sistema de Notificações - CORRIGIDO
     function showNotification(message, type = 'info') {
         // Criar elemento de notificação
         const notification = document.createElement('div');
@@ -523,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 10. Sistema do Chatbot (COMPLETAMENTE IMPLEMENTADO)
+    // 10. Sistema do Chatbot - CORRIGIDO
     function setupChatbot() {
         const chatInput = document.getElementById('chatInput');
         const sendChatBtn = document.getElementById('sendChatBtn');
@@ -555,6 +661,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                     body: JSON.stringify({ query })
                 });
+
+                // Verificar se a resposta é JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    addMessage('Desculpe, estou com problemas técnicos no momento. Tente novamente mais tarde.');
+                    return;
+                }
 
                 if (response.ok) {
                     const data = await response.json();
@@ -650,4 +763,5 @@ document.addEventListener('DOMContentLoaded', () => {
     window.currentUser = currentUser;
     window.isRobotActive = isRobotActive;
     window.showNotification = showNotification;
+    window.updateHomePageForAuth = updateUIAuthenticated;
 });
