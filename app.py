@@ -1,5 +1,5 @@
 # app.py - FinanceClick Backend with Accumulator Options AI Robot
-# RENDER-OPTIMIZED VERSION - ARQUIVOS NA RAIZ
+# VERSÃO FINAL CORRIGIDA - ARQUIVOS NA PASTA FRONTEND
 import os
 import json
 import websockets
@@ -24,20 +24,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, validator
 import secrets
 
-# ==================== CONFIGURAÇÃO PARA RENDER (ARQUIVOS NA RAIZ) ====================
+# ==================== CONFIGURAÇÃO CORRIGIDA PARA RENDER ====================
 
-# No Render, todos os arquivos estão na raiz
+# No Render, os arquivos do frontend estão na pasta 'frontend'
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_PATH = os.path.join(PROJECT_ROOT, "frontend")
+
 print(f"🚀 Iniciando FinanceClick no Render")
 print(f"📁 Project root: {PROJECT_ROOT}")
+print(f"📁 Frontend path: {FRONTEND_PATH}")
 
-# Listar arquivos na raiz para debug
-print("📁 Arquivos na raiz do projeto:")
-for item in os.listdir(PROJECT_ROOT):
-    if item.endswith(('.html', '.css', '.js', '.py', '.txt', '.pkl')):
-        print(f"   - {item}")
+# Verificar se a pasta frontend existe e listar arquivos
+if os.path.exists(FRONTEND_PATH):
+    print("✅ Pasta frontend encontrada!")
+    print("📁 Conteúdo da pasta frontend:")
+    for item in os.listdir(FRONTEND_PATH):
+        if item.endswith(('.html', '.css', '.js', '.json')):
+            print(f"   - {item}")
+else:
+    print("❌ ERRO: Pasta frontend não encontrada!")
 
-# ==================== FIM DOS CAMINHOS ====================
+# ==================== FIM DA CONFIGURAÇÃO ====================
 
 # Configure logging
 logging.basicConfig(
@@ -50,7 +57,7 @@ logger = logging.getLogger("financeclick")
 # Load environment variables
 load_dotenv()
 
-# --- RENDER-OPTIMIZED CONFIGURATION ---
+# --- CONFIGURAÇÃO RENDER ---
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 IS_PRODUCTION = ENVIRONMENT == "production"
 
@@ -75,7 +82,7 @@ user_sessions = {}
 robot_active = False
 robot_tasks = {}
 contact_messages = []
-current_balance = 1000.00  # Valor inicial para demonstração
+current_balance = 1000.00
 
 # Simple in-memory cache for Render
 class SimpleCache:
@@ -113,12 +120,11 @@ def cache(expire: int = 60):
         return wrapper
     return decorator
 
-# Carregar modelos de IA com tratamento robusto
+# Carregar modelos de IA
 def load_models():
     global RISK_MODEL, KNOWLEDGE_BASE
     
     try:
-        # No Render, o risk_model.pkl está na raiz
         with open('risk_model.pkl', 'rb') as f:
             RISK_MODEL = pickle.load(f)
         logger.info("✅ Risk model carregado com sucesso")
@@ -127,8 +133,7 @@ def load_models():
         logger.warning(f"⚠️ risk_model.pkl não carregado: {e}")
 
     try:
-        # No Render, knowledge_base.json está na RAIZ
-        knowledge_path = os.path.join(PROJECT_ROOT, 'knowledge_base.json')
+        knowledge_path = os.path.join(FRONTEND_PATH, 'knowledge_base.json')
         with open(knowledge_path, "r", encoding="utf-8") as f:
             KNOWLEDGE_BASE = json.load(f)
         logger.info("✅ Knowledge base carregada com sucesso")
@@ -138,7 +143,7 @@ def load_models():
 
 load_models()
 
-# --- LIFESPAN MANAGER FOR RENDER ---
+# --- LIFESPAN MANAGER ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global deriv_ws
@@ -179,7 +184,7 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# --- SECURITY MIDDLEWARE FOR RENDER ---
+# --- MIDDLEWARE ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["*"],
@@ -189,14 +194,12 @@ app.add_middleware(
     max_age=600,
 )
 
-# ==================== SERVIÇO DE ARQUIVOS ESTÁTICOS (TUDO NA RAIZ) ====================
-
-# ✅ SERVIR ARQUIVOS ESTÁTICOS INDIVIDUALMENTE DA RAIZ
+# ==================== SISTEMA DE ARQUIVOS ESTÁTICOS CORRIGIDO ====================
 
 @app.get("/style.css", include_in_schema=False)
 async def serve_css():
-    """Serve o arquivo CSS da raiz"""
-    css_path = os.path.join(PROJECT_ROOT, "style.css")
+    """Serve o arquivo CSS da pasta frontend"""
+    css_path = os.path.join(FRONTEND_PATH, "style.css")
     if os.path.exists(css_path):
         return FileResponse(css_path, media_type="text/css")
     else:
@@ -205,20 +208,19 @@ async def serve_css():
 
 @app.get("/script.js", include_in_schema=False)
 async def serve_js():
-    """Serve o arquivo JavaScript da raiz"""
-    js_path = os.path.join(PROJECT_ROOT, "script.js")
+    """Serve o arquivo JavaScript da pasta frontend"""
+    js_path = os.path.join(FRONTEND_PATH, "script.js")
     if os.path.exists(js_path):
         return FileResponse(js_path, media_type="application/javascript")
     else:
         logger.error(f"❌ JS não encontrado em: {js_path}")
         raise HTTPException(status_code=404, detail="JS file not found")
 
-# ✅ SERVIR PÁGINAS HTML DA RAIZ
-
+# Servir páginas HTML
 @app.get("/", include_in_schema=False)
 async def serve_index():
     """Serve a página inicial"""
-    index_path = os.path.join(PROJECT_ROOT, "index.html")
+    index_path = os.path.join(FRONTEND_PATH, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     else:
@@ -228,73 +230,66 @@ async def serve_index():
 @app.get("/dashboard", include_in_schema=False)
 async def serve_dashboard():
     """Serve a página dashboard"""
-    dashboard_path = os.path.join(PROJECT_ROOT, "dashboard.html")
+    dashboard_path = os.path.join(FRONTEND_PATH, "dashboard.html")
     if os.path.exists(dashboard_path):
         return FileResponse(dashboard_path)
     else:
         logger.error(f"❌ dashboard.html não encontrado em: {dashboard_path}")
-        # Fallback para index.html
-        index_path = os.path.join(PROJECT_ROOT, "index.html")
-        return FileResponse(index_path)
+        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
 
 @app.get("/history", include_in_schema=False)
 async def serve_history():
     """Serve a página de histórico"""
-    history_path = os.path.join(PROJECT_ROOT, "history.html")
+    history_path = os.path.join(FRONTEND_PATH, "history.html")
     if os.path.exists(history_path):
         return FileResponse(history_path)
     else:
-        index_path = os.path.join(PROJECT_ROOT, "index.html")
-        return FileResponse(index_path)
+        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
 
 @app.get("/guide", include_in_schema=False)
 async def serve_guide():
     """Serve a página de guia"""
-    guide_path = os.path.join(PROJECT_ROOT, "guide.html")
+    guide_path = os.path.join(FRONTEND_PATH, "guide.html")
     if os.path.exists(guide_path):
         return FileResponse(guide_path)
     else:
-        index_path = os.path.join(PROJECT_ROOT, "index.html")
-        return FileResponse(index_path)
+        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
 
 @app.get("/about", include_in_schema=False)
 async def serve_about():
     """Serve a página sobre"""
-    about_path = os.path.join(PROJECT_ROOT, "about.html")
+    about_path = os.path.join(FRONTEND_PATH, "about.html")
     if os.path.exists(about_path):
         return FileResponse(about_path)
     else:
-        index_path = os.path.join(PROJECT_ROOT, "index.html")
-        return FileResponse(index_path)
+        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
 
 @app.get("/contact", include_in_schema=False)
 async def serve_contact():
     """Serve a página de contato"""
-    contact_path = os.path.join(PROJECT_ROOT, "contact.html")
+    contact_path = os.path.join(FRONTEND_PATH, "contact.html")
     if os.path.exists(contact_path):
         return FileResponse(contact_path)
     else:
-        index_path = os.path.join(PROJECT_ROOT, "index.html")
-        return FileResponse(index_path)
+        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
 
-# ✅ FALLBACK PARA SPA
-
+# Fallback para SPA
 @app.get("/{full_path:path}", include_in_schema=False)
 async def catch_all(full_path: str):
-    """Serve o index.html para qualquer rota não definida (SPA support)"""
+    """Serve o index.html para qualquer rota não definida"""
     # Tentar servir arquivo diretamente se existir
-    file_path = os.path.join(PROJECT_ROOT, full_path)
+    file_path = os.path.join(FRONTEND_PATH, full_path)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
     
     # Fallback para index.html
-    index_path = os.path.join(PROJECT_ROOT, "index.html")
+    index_path = os.path.join(FRONTEND_PATH, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     else:
         raise HTTPException(status_code=404, detail="Página não encontrada")
 
-# --- ENHANCED PYDANTIC MODELS WITH VALIDATION ---
+# --- MODELOS PYDANTIC ---
 class AuthRequest(BaseModel):
     token: str
     
@@ -373,12 +368,7 @@ class ContactRequest(BaseModel):
             raise ValueError('Message must be between 10 and 2000 characters')
         return v.strip()
 
-class TradeHistoryRequest(BaseModel):
-    period: str = "7days"
-    symbol: str = "all"
-    result: str = "all"
-
-# --- ENHANCED DEPENDENCIES E UTILS ---
+# --- DEPENDÊNCIAS E UTILS ---
 async def get_deriv_connection():
     """Improved WebSocket connection with health check"""
     global deriv_ws
@@ -398,43 +388,13 @@ async def get_deriv_connection():
     
     return deriv_ws
 
-async def send_deriv_message(websocket, message: dict, max_retries: int = 2):
-    """Enhanced message sending with retry logic"""
-    for attempt in range(max_retries + 1):
-        try:
-            await websocket.send(json.dumps(message))
-            response = await asyncio.wait_for(websocket.recv(), timeout=15)
-            return json.loads(response)
-        except asyncio.TimeoutError:
-            logger.warning(f"Deriv API timeout (attempt {attempt + 1}/{max_retries + 1})")
-            if attempt == max_retries:
-                raise HTTPException(status_code=504, detail="Deriv API timeout")
-        except websockets.exceptions.ConnectionClosed:
-            logger.warning("WebSocket connection closed during operation")
-            if attempt == max_retries:
-                raise HTTPException(status_code=503, detail="Deriv API connection lost")
-            # Refresh connection
-            websocket = await get_deriv_connection()
-        except Exception as e:
-            logger.error(f"Deriv API error: {e}")
-            if attempt == max_retries:
-                raise HTTPException(status_code=500, detail=f"Deriv API error: {str(e)}")
-    
-    raise HTTPException(status_code=500, detail="Max retries exceeded")
-
-async def authorize_connection(token: str, websocket):
-    auth_message = {"authorize": token}
-    return await send_deriv_message(websocket, auth_message)
-
 def get_current_user(request: Request):
     """Enhanced user session management"""
     if not active_tokens:
         raise HTTPException(status_code=401, detail="Não autenticado")
     
-    # Simple session management - in production, use JWT or proper sessions
     loginid = next(iter(active_tokens.keys()))
     
-    # Check session timeout
     session_key = f"session_{loginid}"
     if session_key in user_sessions:
         session_data = user_sessions[session_key]
@@ -443,7 +403,6 @@ def get_current_user(request: Request):
             del user_sessions[session_key]
             raise HTTPException(status_code=401, detail="Sessão expirada")
         
-        # Update last activity
         user_sessions[session_key]['last_activity'] = datetime.now().timestamp()
     
     return {
@@ -452,7 +411,6 @@ def get_current_user(request: Request):
         "authenticated": True
     }
 
-# Rate limiting helper (simple in-memory version)
 class RateLimiter:
     def __init__(self):
         self.requests = {}
@@ -462,7 +420,6 @@ class RateLimiter:
         if key not in self.requests:
             self.requests[key] = []
         
-        # Clean old requests
         self.requests[key] = [req_time for req_time in self.requests[key] if now - req_time < window]
         
         if len(self.requests[key]) >= limit:
@@ -473,7 +430,7 @@ class RateLimiter:
 
 rate_limiter = RateLimiter()
 
-# --- ENHANCED ACCUMULATOR OPTIONS LOGIC ---
+# --- LÓGICA DE ACCUMULATOR OPTIONS ---
 def calculate_accumulator_parameters(strategy: str, symbol: str) -> Dict[str, Any]:
     """Calcula parâmetros ótimos para Accumulator Options baseado na estratégia"""
     strategies = {
@@ -484,7 +441,6 @@ def calculate_accumulator_parameters(strategy: str, symbol: str) -> Dict[str, An
     
     params = strategies.get(strategy, strategies["moderate"])
     
-    # Ajustar baseado no símbolo (volatilidade)
     if "10" in symbol:
         params["growth_rate"] = min(params["growth_rate"] + 0.01, 0.05)
     elif "100" in symbol:
@@ -503,7 +459,6 @@ def analyze_market_risk(symbol: str, strategy: str) -> MarketAnalysis:
     
     volatility = volatility_scores.get(symbol, 0.5)
     
-    # Calcular probabilidade de sucesso
     base_probability = 0.8 - (volatility * 0.3)
     
     strategy_boost = {
@@ -514,7 +469,6 @@ def analyze_market_risk(symbol: str, strategy: str) -> MarketAnalysis:
     
     success_probability = max(0.1, min(0.9, base_probability + strategy_boost.get(strategy, 0)))
     
-    # Recomendar taxa de crescimento ótima
     recommended_growth = max(0.01, min(0.05, 0.03 - (volatility * 0.02)))
     
     return MarketAnalysis(
@@ -524,13 +478,12 @@ def analyze_market_risk(symbol: str, strategy: str) -> MarketAnalysis:
         recommended_growth_rate=recommended_growth
     )
 
-# ==================== ROTAS DA API ====================
+# ==================== ENDPOINTS DA API ====================
 
-# --- ENHANCED AUTH ENDPOINTS ---
+# --- AUTENTICAÇÃO ---
 @app.get("/auth/login")
 async def login_with_deriv():
     import urllib.parse
-    # Generate state parameter for CSRF protection
     state = secrets.token_urlsafe(16)
     params = urllib.parse.urlencode({
         "app_id": DERIV_APP_ID,
@@ -542,9 +495,8 @@ async def login_with_deriv():
 @app.get("/auth/callback")
 async def handle_oauth_callback(request: Request):
     try:
-        # Rate limiting
         client_ip = request.client.host
-        if await rate_limiter.is_rate_limited(f"oauth_{client_ip}", 5, 300):  # 5 attempts per 5 minutes
+        if await rate_limiter.is_rate_limited(f"oauth_{client_ip}", 5, 300):
             raise HTTPException(status_code=429, detail="Too many authentication attempts")
         
         query_params = dict(request.query_params)
@@ -564,7 +516,6 @@ async def handle_oauth_callback(request: Request):
             
             if token:
                 active_tokens[loginid] = token
-                # Create session
                 session_key = f"session_{loginid}"
                 user_sessions[session_key] = {
                     'loginid': loginid,
@@ -592,7 +543,6 @@ async def logout_user(request: Request):
         user = get_current_user(request)
         loginid = user['loginid']
         
-        # Remove tokens and sessions
         if loginid in active_tokens:
             del active_tokens[loginid]
         session_key = f"session_{loginid}"
@@ -615,39 +565,12 @@ async def get_current_user_info(user: dict = Depends(get_current_user)):
         "account_type": "demo" if user['loginid'].startswith("VRTC") else "real"
     }
 
-# --- ENHANCED DERIV API ENDPOINTS ---
-@app.post("/api/authorize")
-async def authorize_with_token(request: AuthRequest, websocket = Depends(get_deriv_connection)):
-    try:
-        auth_response = await authorize_connection(request.token, websocket)
-        
-        if "error" in auth_response:
-            logger.warning(f"Authorization failed: {auth_response['error']}")
-            return JSONResponse({"status": "error", "error": auth_response["error"]}, status_code=400)
-        
-        logger.info(f"User authorized: {auth_response['authorize']['loginid']}")
-        return JSONResponse({
-            "status": "success",
-            "account": {
-                "loginid": auth_response["authorize"]["loginid"],
-                "currency": auth_response["authorize"]["currency"],
-                "country": auth_response["authorize"]["country"],
-                "name": f"{auth_response['authorize'].get('first_name', '')} {auth_response['authorize'].get('last_name', '')}",
-                "balance": auth_response["authorize"]["balance"]
-            }
-        })
-        
-    except Exception as e:
-        logger.error(f"Authorization error: {e}")
-        raise HTTPException(status_code=500, detail=f"Authorization failed: {str(e)}")
-
+# --- DERIV API ---
 @app.get("/api/balance")
 async def get_account_balance(user: dict = Depends(get_current_user)):
     """Get account balance"""
     try:
-        # Simulação para demonstração - em produção, usar API real
         global current_balance
-        # Simular pequena variação no saldo
         current_balance += round((current_balance * 0.001) * (1 if hash(str(datetime.now().minute)) % 2 == 0 else -1), 2)
         
         return JSONResponse({
@@ -662,11 +585,10 @@ async def get_account_balance(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to get balance: {str(e)}")
 
 @app.get("/api/symbols/accumulators")
-@cache(expire=300)  # Cache for 5 minutes
+@cache(expire=300)
 async def get_accumulator_symbols():
     """Get available symbols for accumulator trading"""
     try:
-        # Símbolos fixos para demonstração
         accumulator_symbols = [
             {"symbol": "1HZ10V", "display_name": "Volatility 10 Index"},
             {"symbol": "1HZ25V", "display_name": "Volatility 25 Index"},
@@ -687,19 +609,14 @@ async def buy_accumulator_contract(
 ):
     """Buy an accumulator contract (simulado para demonstração)"""
     try:
-        # Rate limiting per user
-        if await rate_limiter.is_rate_limited(f"buy_{user['loginid']}", 10, 60):  # 10 trades per minute
+        if await rate_limiter.is_rate_limited(f"buy_{user['loginid']}", 10, 60):
             raise HTTPException(status_code=429, detail="Too many trade attempts")
         
-        # Simular compra bem-sucedida
-        contract_id = f"ACCU_{int(datetime.now().timestamp())}_{user['loginid']}"
-        
-        # Simular resultado (80% de chance de sucesso)
         import random
+        contract_id = f"ACCU_{int(datetime.now().timestamp())}_{user['loginid']}"
         is_success = random.random() > 0.2
         profit_loss = buy_request.amount * buy_request.growth_rate * random.randint(5, 20) if is_success else -buy_request.amount
         
-        # Atualizar saldo
         global current_balance
         current_balance += profit_loss
         
@@ -723,11 +640,10 @@ async def buy_accumulator_contract(
         raise HTTPException(status_code=500, detail=f"Accumulator buy failed: {str(e)}")
 
 @app.post("/api/accumulators/proposal")
-@cache(expire=30)  # Cache for 30 seconds
+@cache(expire=30)
 async def get_accumulator_proposal(buy_request: AccumulatorBuyRequest):
     """Get proposal for accumulator contract (simulado)"""
     try:
-        # Simular proposta
         import random
         potential_payout = buy_request.amount * (1 + buy_request.growth_rate * random.randint(8, 15))
         
@@ -743,9 +659,9 @@ async def get_accumulator_proposal(buy_request: AccumulatorBuyRequest):
         logger.error(f"Proposal request error: {e}")
         raise HTTPException(status_code=500, detail=f"Proposal request failed: {str(e)}")
 
-# --- ENHANCED TRADE HISTORY ---
+# --- HISTÓRICO DE TRADES ---
 @app.get("/api/accumulators/history")
-@cache(expire=60)  # Cache for 1 minute
+@cache(expire=60)
 async def get_accumulator_history(
     period: str = "7days", 
     symbol: str = "all", 
@@ -754,7 +670,6 @@ async def get_accumulator_history(
 ):
     """Retorna histórico de trades de Accumulator Options"""
     try:
-        # Dados simulados para demonstração
         base_trades = [
             {
                 "id": "123456789",
@@ -777,21 +692,9 @@ async def get_accumulator_history(
                 "ticks": 3,
                 "timestamp": (datetime.now() - timedelta(days=1)).isoformat(),
                 "status": "loss"
-            },
-            {
-                "id": "123456787",
-                "symbol": "1HZ100V",
-                "type": "ACCU",
-                "growth_rate": 0.03,
-                "amount": 20.0,
-                "result": 25.50,
-                "ticks": 18,
-                "timestamp": (datetime.now() - timedelta(days=2)).isoformat(),
-                "status": "win"
             }
         ]
         
-        # Aplicar filtros
         filtered_trades = []
         for trade in base_trades:
             if symbol != "all" and trade["symbol"] != symbol:
@@ -800,7 +703,6 @@ async def get_accumulator_history(
                 continue
             filtered_trades.append(trade)
         
-        # Calcular estatísticas
         total_trades = len(filtered_trades)
         winning_trades = len([t for t in filtered_trades if t["status"] == "win"])
         losing_trades = len([t for t in filtered_trades if t["status"] == "loss"])
@@ -822,7 +724,7 @@ async def get_accumulator_history(
         logger.error(f"History request error: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao carregar histórico: {str(e)}")
 
-# --- ENHANCED AI ROBOT ---
+# --- ROBÔ AI ---
 async def run_ai_robot(config: RobotConfig, loginid: str):
     """Executa o robô AI para trading automático de Accumulators (simulado)"""
     global robot_active
@@ -834,25 +736,20 @@ async def run_ai_robot(config: RobotConfig, loginid: str):
         total_profit = 0
         consecutive_losses = 0
         
-        while robot_active and trade_count < 10:  # Limite de trades para demo
+        while robot_active and trade_count < 10:
             try:
-                # Análise de mercado em tempo real
                 market_analysis = analyze_market_risk("1HZ100V", config.strategy)
                 
-                # Safety check: stop after 3 consecutive losses
                 if consecutive_losses >= 3:
                     logger.warning(f"Robô parado após {consecutive_losses} perdas consecutivas")
                     robot_active = False
                     break
                 
-                # Tomada de decisão baseada em IA
                 if market_analysis.success_probability > 0.6:
-                    # Simular trade
                     import random
-                    is_success = random.random() > 0.3  # 70% de sucesso
+                    is_success = random.random() > 0.3
                     profit = config.trade_amount * config.growth_rate * random.randint(5, 15) if is_success else -config.trade_amount
                     
-                    # Atualizar saldo global
                     global current_balance
                     current_balance += profit
                     
@@ -866,7 +763,7 @@ async def run_ai_robot(config: RobotConfig, loginid: str):
                         logger.warning(f"📊 Robô executou trade #{trade_count} com perda: ${profit:.2f}")
                         consecutive_losses += 1
                     
-                    await asyncio.sleep(10)  # Intervalo mais curto para demo
+                    await asyncio.sleep(10)
                 else:
                     logger.info("⏸️ Condições de mercado não favoráveis - aguardando...")
                     await asyncio.sleep(5)
@@ -887,7 +784,6 @@ async def toggle_robot(config: RobotConfig, background_tasks: BackgroundTasks, u
     global robot_active, robot_tasks
     
     if not robot_active:
-        # Iniciar robô
         robot_active = True
         background_tasks.add_task(run_ai_robot, config, user['loginid'])
         logger.info(f"Robô AI ativado para {user['loginid']} com estratégia {config.strategy}")
@@ -899,7 +795,6 @@ async def toggle_robot(config: RobotConfig, background_tasks: BackgroundTasks, u
             "config": config.dict()
         }
     else:
-        # Parar robô
         robot_active = False
         logger.info(f"Robô AI desativado para {user['loginid']}")
         return {
@@ -916,13 +811,13 @@ async def get_robot_status():
     }
 
 @app.get("/api/market/analysis")
-@cache(expire=60)  # Cache for 1 minute
+@cache(expire=60)
 async def get_market_analysis(symbol: str = "1HZ100V", strategy: str = "moderate"):
     """Retorna análise de mercado para Accumulator Options"""
     analysis = analyze_market_risk(symbol, strategy)
     return analysis.dict()
 
-# --- ENHANCED CONTACT SYSTEM ---
+# --- CONTATO E CHATBOT ---
 async def send_contact_email(contact_data: dict):
     """Envia email de contato com tratamento robusto"""
     try:
@@ -952,7 +847,6 @@ async def send_contact_email(contact_data: dict):
         
         message.attach(MIMEText(body, "plain"))
         
-        # Enviar email com timeout
         try:
             with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
                 server.starttls()
@@ -975,12 +869,10 @@ async def submit_contact_form(
 ):
     """Processa formulário de contato com rate limiting"""
     try:
-        # Rate limiting por IP
         client_ip = request.client.host
-        if await rate_limiter.is_rate_limited(f"contact_{client_ip}", 3, 300):  # 3 mensagens por 5 minutos
+        if await rate_limiter.is_rate_limited(f"contact_{client_ip}", 3, 300):
             raise HTTPException(status_code=429, detail="Muitas mensagens enviadas. Tente novamente mais tarde.")
         
-        # Preparar dados do contato
         contact_info = {
             **contact_data.dict(),
             "timestamp": datetime.now().isoformat(),
@@ -988,10 +880,8 @@ async def submit_contact_form(
             "ip_address": client_ip
         }
         
-        # Armazenar localmente (em produção, usar banco de dados)
         contact_messages.append(contact_info)
         
-        # Enviar email em background
         background_tasks.add_task(send_contact_email, contact_info)
         
         logger.info(f"📧 Nova mensagem de contato recebida: {contact_data.email}")
@@ -1007,25 +897,21 @@ async def submit_contact_form(
         logger.error(f"Erro ao processar formulário de contato: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao processar formulário: {str(e)}")
 
-# --- ENHANCED CHATBOT ---
 @app.post("/api/chatbot/ask")
 async def chatbot_ask(query_data: ChatQuery, request: Request):
     """Responde perguntas sobre Accumulator Options com rate limiting"""
-    # Rate limiting
     client_ip = request.client.host
-    if await rate_limiter.is_rate_limited(f"chatbot_{client_ip}", 20, 60):  # 20 requests per minute
+    if await rate_limiter.is_rate_limited(f"chatbot_{client_ip}", 20, 60):
         raise HTTPException(status_code=429, detail="Muitas requisições. Tente novamente em breve.")
     
     query = query_data.query.lower()
     
-    # Buscar na base de conhecimento
     for regra in KNOWLEDGE_BASE.get("regras", []):
         if any(keyword in query for keyword in regra.get("keywords", [])):
             return {"response": regra["resposta"]}
     
-    # Respostas padrão para Accumulator Options
     accumulator_responses = {
-        "accumulator": "Accumulator Options permiten lucrar com mercados laterais através de crescimento composto. Escolha entre 1-5% de taxa de crescimento.",
+        "accumulator": "Accumulator Options permitem lucrar com mercados laterais através de crescimento composto. Escolha entre 1-5% de taxa de crescimento.",
         "risco": "O risco é limitado ao valor do stake. Você só perde se o preço tocar as barreiras.",
         "estratégia": "Estratégias: Conservadora (1-2%), Moderada (3%), Agressiva (4-5%).",
         "symbols": "Disponível nos índices Volatility: 10, 25, 50, 75 e 100.",
@@ -1044,130 +930,14 @@ async def chatbot_ask(query_data: ChatQuery, request: Request):
         "response": "Desculpe, sou especializado em Accumulator Options. Posso ajudar com: conexão Deriv, robô AI, estratégias, símbolos disponíveis, gestão de risco. O que gostaria de saber?"
     }
 
-# --- ENHANCED STATISTICS ENDPOINTS ---
-@app.get("/api/stats/platform")
-@cache(expire=120)  # Cache for 2 minutes
-async def get_platform_stats():
-    """Retorna estatísticas da plataforma"""
-    return {
-        "users_count": len(active_tokens),
-        "active_robots": 1 if robot_active else 0,
-        "total_trades": len(contact_messages) + 25,
-        "success_rate": 78.5,
-        "platform_uptime": 99.9,
-        "timestamp": datetime.now().isoformat()
-    }
-
-@app.get("/api/stats/user")
-async def get_user_stats(user: dict = Depends(get_current_user)):
-    """Retorna estatísticas do usuário atual"""
-    return {
-        "total_trades": 15,
-        "winning_trades": 12,
-        "losing_trades": 3,
-        "win_rate": 80.0,
-        "total_profit": 145.75,
-        "favorite_symbol": "1HZ100V",
-        "preferred_strategy": "moderate"
-    }
-
-# --- COMPATIBILITY ENDPOINTS FOR FRONTEND ---
-@app.get("/api/user/profile")
-async def get_user_profile(user: dict = Depends(get_current_user)):
-    """Retorna perfil completo do usuário para compatibilidade com frontend"""
-    return {
-        "loginid": user['loginid'],
-        "name": "Trader FinanceClick",
-        "email": f"{user['loginid']}@deriv.com",
-        "account_type": "demo" if user['loginid'].startswith("VRTC") else "real",
-        "country": "BR",
-        "currency": "USD",
-        "balance": current_balance,
-        "joined_date": (datetime.now() - timedelta(days=30)).isoformat()
-    }
-
-@app.get("/api/performance/metrics")
-@cache(expire=120)
-async def get_performance_metrics(user: dict = Depends(get_current_user)):
-    """Métricas de performance para a página inicial"""
-    return {
-        "daily_profit": 45.50,
-        "weekly_profit": 230.75,
-        "monthly_profit": 890.25,
-        "total_trades": 47,
-        "success_rate": 76.3,
-        "avg_trade_duration": "45s",
-        "preferred_symbol": "1HZ100V"
-    }
-
-@app.get("/api/notifications")
-async def get_user_notifications(user: dict = Depends(get_current_user)):
-    """Sistema de notificações para o usuário"""
-    return {
-        "notifications": [
-            {
-                "id": 1,
-                "type": "info",
-                "title": "Bem-vindo ao FinanceClick!",
-                "message": "Sua conta foi conectada com sucesso com a Deriv API.",
-                "timestamp": (datetime.now() - timedelta(hours=2)).isoformat(),
-                "read": True
-            },
-            {
-                "id": 2,
-                "type": "success",
-                "title": "Trade Executado",
-                "message": "Accumulator Options comprado com sucesso - 1HZ100V",
-                "timestamp": (datetime.now() - timedelta(minutes=30)).isoformat(),
-                "read": False
-            }
-        ]
-    }
-
-@app.post("/api/notifications/{notification_id}/read")
-async def mark_notification_read(notification_id: int, user: dict = Depends(get_current_user)):
-    """Marca notificação como lida"""
-    return {"status": "success", "message": f"Notificação {notification_id} marcada como lida"}
-
-@app.get("/api/learning/resources")
-@cache(expire=3600)  # Cache por 1 hora
-async def get_learning_resources():
-    """Recursos de aprendizado para o guia"""
-    return {
-        "resources": [
-            {
-                "title": "Guia Completo de Accumulator Options",
-                "description": "Aprenda tudo sobre Accumulator Options e estratégias de trading",
-                "type": "guide",
-                "url": "/guide.html",
-                "duration": "15 min"
-            },
-            {
-                "title": "Tutoriais em Vídeo",
-                "description": "Vídeos explicativos sobre como usar a plataforma",
-                "type": "video",
-                "url": "https://youtube.com/@financeclick",
-                "duration": "Variado"
-            },
-            {
-                "title": "FAQ Interativo",
-                "description": "Perguntas frequentes respondidas pelo nosso assistente AI",
-                "type": "interactive",
-                "url": "/guide.html",
-                "duration": "5 min"
-            }
-        ]
-    }
-
-# --- ENHANCED HEALTH CHECK AND SYSTEM INFO ---
+# --- ENDPOINTS ADICIONAIS ---
 @app.get("/api/health")
 async def health_check():
     """Health check completo da plataforma"""
-    # Verificar se arquivos essenciais existem
     essential_files = {
-        "index.html": os.path.exists(os.path.join(PROJECT_ROOT, "index.html")),
-        "style.css": os.path.exists(os.path.join(PROJECT_ROOT, "style.css")),
-        "script.js": os.path.exists(os.path.join(PROJECT_ROOT, "script.js")),
+        "index.html": os.path.exists(os.path.join(FRONTEND_PATH, "index.html")),
+        "style.css": os.path.exists(os.path.join(FRONTEND_PATH, "style.css")),
+        "script.js": os.path.exists(os.path.join(FRONTEND_PATH, "script.js")),
     }
     
     health_status = {
@@ -1186,29 +956,7 @@ async def health_check():
     
     return JSONResponse(health_status)
 
-@app.get("/api/system/info")
-async def get_system_info():
-    """Retorna informações do sistema"""
-    return {
-        "platform": "FinanceClick",
-        "version": "2.1.0",
-        "environment": ENVIRONMENT,
-        "deriv_app_id": DERIV_APP_ID,
-        "supported_symbols": ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V"],
-        "max_growth_rate": 0.05,
-        "min_growth_rate": 0.01,
-        "max_trade_amount": 1000,
-        "min_trade_amount": 5,
-        "features": [
-            "accumulator_options",
-            "ai_robot",
-            "real_time_analysis",
-            "risk_management",
-            "contact_support"
-        ]
-    }
-
-# --- ENHANCED ERROR HANDLERS ---
+# --- ERROR HANDLERS ---
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     logger.warning(f"404 Not Found: {request.url}")
@@ -1225,29 +973,7 @@ async def internal_error_handler(request: Request, exc: HTTPException):
         content={"detail": "Erro interno do servidor"}
     )
 
-@app.exception_handler(429)
-async def rate_limit_handler(request: Request, exc: HTTPException):
-    logger.warning(f"429 Rate Limit Exceeded: {request.client.host}")
-    return JSONResponse(
-        status_code=429,
-        content={"detail": "Muitas requisições. Tente novamente mais tarde."}
-    )
-
-@app.exception_handler(401)
-async def unauthorized_handler(request: Request, exc: HTTPException):
-    logger.warning(f"401 Unauthorized: {request.client.host}")
-    return JSONResponse(
-        status_code=401,
-        content={"detail": "Não autorizado - faça login primeiro"}
-    )
-
 # --- PRODUCTION INITIALIZATION ---
 if __name__ == "__main__":
     import uvicorn
-    
-    uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
-        port=PORT,
-        log_level="info"
-    )
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
