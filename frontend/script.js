@@ -1,9 +1,8 @@
-// script.js - VERSÃO CORRIGIDA PARA RENDER
+// script.js - VERSÃO CORRIGIDA E SIMPLIFICADA
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Variáveis Globais e Estado da Aplicação
+    // 1. Variáveis Globais
     let currentUser = null;
     let isRobotActive = false;
-    let currentBalance = 0;
 
     // Elementos DOM
     const menuToggle = document.getElementById('menuToggle');
@@ -14,32 +13,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Inicialização da Aplicação
     initializeApp();
 
-    // ----------------------------------------------------
-    // LÓGICA PARA DESTACAR O LINK ATIVO (.active)
-    // ----------------------------------------------------
+    // Função para destacar link ativo
     function highlightActiveLink() {
         if (!mainNav) return;
 
         const currentPath = window.location.pathname.split('/').pop() || 'index.html';
         const navLinks = mainNav.querySelectorAll('a.nav-link');
 
-        // Remove a classe 'active' de todos os links primeiro
-        navLinks.forEach(link => {
-            link.classList.remove('active');
-        });
-
-        // Adiciona a classe 'active' ao link correspondente
+        navLinks.forEach(link => link.classList.remove('active'));
+        
         navLinks.forEach(link => {
             const linkPath = link.getAttribute('href').split('/').pop();
-            
-            // Compara o caminho do link com o nome do arquivo da página atual
             if (linkPath === currentPath) {
                 link.classList.add('active');
             }
         });
     }
 
-    // 3. Toggle do Menu Hamburguer
+    // 3. Menu Hamburguer
     if (menuToggle && mainNav) {
         menuToggle.addEventListener('click', () => {
             mainNav.classList.toggle('open');
@@ -48,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const navLinks = mainNav.querySelectorAll('a');
         navLinks.forEach(link => {
             link.addEventListener('click', () => {
-                // Fecha o menu móvel ao clicar em um link, apenas em telas pequenas
                 if (window.innerWidth < 768) {
                     mainNav.classList.remove('open');
                 }
@@ -56,39 +46,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 4. Sistema de Autenticação Corrigido para Render
+    // 4. Sistema de Autenticação
     async function initializeApp() {
-        highlightActiveLink(); // Chamada adicionada para rodar na inicialização
+        highlightActiveLink();
         await checkAuthentication();
         await loadInitialData();
         setupEventListeners();
     }
 
-    // CORREÇÃO: Função de autenticação robusta
     async function checkAuthentication() {
         try {
-            console.log('🔐 Verificando autenticação...');
             const response = await fetch('/api/me');
-            
-            // Verificar se a resposta é JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.warn('⚠️ Resposta não é JSON, provavelmente não autenticado');
-                updateUINotAuthenticated();
-                return;
-            }
             
             if (response.ok) {
                 const userData = await response.json();
                 currentUser = userData;
                 updateUIAuthenticated(userData);
-                console.log('✅ Usuário autenticado:', userData.loginid);
             } else {
-                console.log('❌ Não autenticado - status:', response.status);
                 updateUINotAuthenticated();
             }
         } catch (error) {
-            console.error('❌ Erro ao verificar autenticação:', error);
+            console.error('Erro ao verificar autenticação:', error);
             updateUINotAuthenticated();
         }
     }
@@ -108,14 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
-        // Atualizar saldo se estiver no dashboard
         if (document.getElementById('accountBalance')) {
             updateAccountBalance();
-        }
-
-        // Atualizar página inicial se necessário
-        if (window.updateHomePageForAuth) {
-            window.updateHomePageForAuth(userData);
         }
     }
 
@@ -128,26 +100,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userInfoElement) {
             userInfoElement.innerHTML = '';
         }
-
-        // Atualizar página inicial se necessário
-        if (window.updateHomePageForAuth) {
-            window.updateHomePageForAuth(null);
-        }
     }
 
     function handleLogin() {
-        console.log('🔐 Redirecionando para login...');
         window.location.href = '/auth/login';
     }
 
     async function handleLogout() {
         try {
-            console.log('👋 Executando logout...');
             const response = await fetch('/auth/logout', { 
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: {'Content-Type': 'application/json'}
             });
             
             if (response.ok) {
@@ -155,12 +118,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateUINotAuthenticated();
                 showNotification('Logout realizado com sucesso!', 'success');
                 
-                // Redirecionar para página inicial se estiver no dashboard
                 if (window.location.pathname.includes('dashboard')) {
                     setTimeout(() => window.location.href = '/', 1000);
                 }
-            } else {
-                throw new Error('Logout falhou');
             }
         } catch (error) {
             console.error('Erro no logout:', error);
@@ -168,30 +128,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 5. Sistema de Robô AI para Accumulator Options - CORRIGIDO
+    // 5. Sistema de Robô AI
     function setupRobotAIControls() {
         const toggleRobotBtn = document.getElementById('toggleRobotBtn');
         const aiStatus = document.getElementById('aiStatus');
-        const strategySelect = document.getElementById('strategySelect');
-        const stopLossInput = document.getElementById('stopLoss');
-        const takeProfitInput = document.getElementById('takeProfit');
-        const tradeAmountInput = document.getElementById('tradeAmount');
-        const tradeAmountValue = document.getElementById('tradeAmountValue');
 
         if (!toggleRobotBtn || !aiStatus) return;
 
-        // Atualizar valor do trade amount
-        if (tradeAmountInput && tradeAmountValue) {
-            tradeAmountValue.textContent = `$${tradeAmountInput.value}.00`;
-            tradeAmountInput.addEventListener('input', () => {
-                tradeAmountValue.textContent = `$${tradeAmountInput.value}.00`;
-            });
-        }
-
-        // Verificar status atual do robô
         checkRobotStatus();
 
-        // Configurar toggle do robô
         toggleRobotBtn.addEventListener('click', async () => {
             if (!currentUser) {
                 showNotification('Por favor, faça login primeiro!', 'warning');
@@ -199,52 +144,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const config = {
-                strategy: strategySelect?.value || 'moderate',
-                max_daily_loss: parseFloat(stopLossInput?.value) || 100,
-                take_profit_ticks: parseInt(takeProfitInput?.value) || 10,
-                stop_loss_ticks: parseInt(stopLossInput?.value) || 3,
-                trade_amount: parseFloat(tradeAmountInput?.value) || 5,
+                strategy: document.getElementById('strategySelect')?.value || 'moderate',
+                trade_amount: parseFloat(document.getElementById('tradeAmount')?.value) || 5,
                 growth_rate: 0.02
             };
 
             try {
-                console.log('🤖 Ativando/desativando robô...');
                 const response = await fetch('/api/robot/toggle', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(config)
                 });
 
-                // Verificar se a resposta é JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    throw new Error('Resposta do servidor não é JSON');
-                }
-
-                const result = await response.json();
-
                 if (response.ok) {
+                    const result = await response.json();
                     isRobotActive = result.status === 'running';
                     updateRobotUI(isRobotActive);
                     showNotification(
-                        isRobotActive 
-                            ? `Robô AI ativado com estratégia ${config.strategy}`
-                            : 'Robô AI desativado',
+                        isRobotActive ? 'Robô AI ativado!' : 'Robô AI desativado',
                         isRobotActive ? 'success' : 'info'
                     );
-
-                    // Mostrar análise de mercado se o robô foi ativado
-                    if (isRobotActive && result.analysis) {
-                        displayMarketAnalysis(result.analysis);
-                    }
                 } else {
-                    showNotification(`Erro: ${result.detail || 'Erro desconhecido'}`, 'error');
+                    showNotification('Erro ao controlar robô', 'error');
                 }
             } catch (error) {
                 console.error('Erro ao alternar robô:', error);
-                showNotification('Erro de comunicação com o servidor', 'error');
+                showNotification('Erro de comunicação', 'error');
             }
         });
     }
@@ -252,14 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkRobotStatus() {
         try {
             const response = await fetch('/api/robot/status');
-            
-            // Verificar se a resposta é JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.warn('⚠️ Resposta do status do robô não é JSON');
-                return;
-            }
-            
             if (response.ok) {
                 const status = await response.json();
                 isRobotActive = status.active;
@@ -289,45 +206,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 6. Sistema de Trading com Accumulator Options - CORRIGIDO
+    // 6. Sistema de Trading
     function setupAccumulatorTrading() {
-        const symbolSelect = document.getElementById('symbolSelect');
-        const growthRateSelect = document.getElementById('growthRate');
-        const amountInput = document.getElementById('amount');
         const buyButton = document.getElementById('buyAccumulatorBtn');
-        const proposalButton = document.getElementById('getProposalBtn');
-        const proposalResult = document.getElementById('proposalResult');
-
         if (!buyButton) return;
 
-        // Carregar símbolos disponíveis
         loadAccumulatorSymbols();
 
-        // Configurar botão de proposta
-        if (proposalButton && proposalResult) {
-            proposalButton.addEventListener('click', async () => {
-                console.log('📊 Obtendo proposta...');
-                const proposal = await getAccumulatorProposal();
-                if (proposal) {
-                    proposalResult.innerHTML = `
-                        <div class="proposal-info">
-                            <h4>Proposta Recebida</h4>
-                            <p>Payout Potencial: $${proposal.proposal?.display_value || 'N/A'}</p>
-                            <p>Taxa de Crescimento: ${(growthRateSelect.value * 100)}%</p>
-                        </div>
-                    `;
-                } else {
-                    proposalResult.innerHTML = `
-                        <div class="proposal-info">
-                            <h4>Erro ao Obter Proposta</h4>
-                            <p>Não foi possível obter a proposta no momento.</p>
-                        </div>
-                    `;
-                }
-            });
-        }
-
-        // Configurar botão de compra
         buyButton.addEventListener('click', async () => {
             if (!currentUser) {
                 showNotification('Por favor, faça login primeiro!', 'warning');
@@ -335,50 +220,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const tradeData = {
-                symbol: symbolSelect?.value || '1HZ100V',
-                growth_rate: parseFloat(growthRateSelect?.value) || 0.02,
-                amount: parseFloat(amountInput?.value) || 5,
-                duration: 60,
-                duration_unit: 't'
+                symbol: document.getElementById('symbolSelect')?.value || '1HZ100V',
+                growth_rate: parseFloat(document.getElementById('growthRate')?.value) || 0.02,
+                amount: parseFloat(document.getElementById('amount')?.value) || 5,
+                duration: 60
             };
 
             try {
                 showNotification('Executando compra...', 'info');
-                console.log('🛒 Executando compra...', tradeData);
                 
                 const response = await fetch('/api/accumulators/buy', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(tradeData)
                 });
 
-                // Verificar se a resposta é JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    throw new Error('Resposta do servidor não é JSON');
-                }
-
-                const result = await response.json();
-
                 if (response.ok) {
+                    const result = await response.json();
                     showNotification('Compra executada com sucesso!', 'success');
-                    console.log('✅ Resultado da compra:', result);
                     
-                    // Atualizar saldo após compra
                     await updateAccountBalance();
                     
-                    // Mostrar detalhes do contrato se disponível
                     if (result.buy) {
                         displayContractDetails(result.buy);
                     }
                 } else {
-                    showNotification(`Erro na compra: ${result.detail || 'Erro desconhecido'}`, 'error');
+                    showNotification('Erro na compra', 'error');
                 }
             } catch (error) {
                 console.error('Erro na compra:', error);
-                showNotification('Erro de comunicação com o servidor', 'error');
+                showNotification('Erro de comunicação', 'error');
             }
         });
     }
@@ -388,16 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!symbolSelect) return;
 
         try {
-            console.log('📈 Carregando símbolos...');
             const response = await fetch('/api/symbols/accumulators');
-            
-            // Verificar se a resposta é JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.warn('⚠️ Resposta de símbolos não é JSON');
-                return;
-            }
-            
             if (response.ok) {
                 const data = await response.json();
                 symbolSelect.innerHTML = '';
@@ -408,78 +270,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     option.textContent = `${symbol.display_name} (${symbol.symbol})`;
                     symbolSelect.appendChild(option);
                 });
-                console.log('✅ Símbolos carregados:', data.accumulator_symbols.length);
             }
         } catch (error) {
             console.error('Erro ao carregar símbolos:', error);
         }
     }
 
-    async function getAccumulatorProposal() {
-        const symbolSelect = document.getElementById('symbolSelect');
-        const growthRateSelect = document.getElementById('growthRate');
-        const amountInput = document.getElementById('amount');
-
-        const proposalData = {
-            symbol: symbolSelect?.value || '1HZ100V',
-            growth_rate: parseFloat(growthRateSelect?.value) || 0.02,
-            amount: parseFloat(amountInput?.value) || 5,
-            duration: 60,
-            duration_unit: 't'
-        };
-
-        try {
-            const response = await fetch('/api/accumulators/proposal', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(proposalData)
-            });
-
-            // Verificar se a resposta é JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.warn('⚠️ Resposta de proposta não é JSON');
-                return null;
-            }
-
-            if (response.ok) {
-                return await response.json();
-            }
-        } catch (error) {
-            console.error('Erro ao obter proposta:', error);
-        }
-        return null;
-    }
-
-    // 7. Sistema de Saldo e Dados da Conta - CORRIGIDO
+    // 7. Sistema de Saldo
     async function updateAccountBalance() {
         const balanceElement = document.getElementById('accountBalance');
         if (!balanceElement) return;
 
         try {
-            console.log('💰 Atualizando saldo...');
             const response = await fetch('/api/balance');
-            
-            // Verificar se a resposta é JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.warn('⚠️ Resposta de saldo não é JSON');
-                balanceElement.textContent = '$---.--';
-                return;
-            }
-            
             if (response.ok) {
                 const data = await response.json();
                 if (data.balance) {
-                    currentBalance = data.balance.balance;
                     balanceElement.textContent = 
-                        `$${currentBalance.toFixed(2)} ${data.balance.currency || 'USD'}`;
-                    console.log('✅ Saldo atualizado:', currentBalance);
+                        `$${data.balance.balance.toFixed(2)} ${data.balance.currency || 'USD'}`;
                 }
-            } else {
-                balanceElement.textContent = 'Erro ao carregar';
             }
         } catch (error) {
             console.error('Erro ao atualizar saldo:', error);
@@ -487,64 +296,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 8. Sistema de Análise de Mercado - CORRIGIDO
-    async function loadMarketAnalysis() {
-        const analysisElement = document.getElementById('marketAnalysis');
-        if (!analysisElement) return;
-
-        try {
-            console.log('📊 Carregando análise de mercado...');
-            const response = await fetch('/api/market/analysis?symbol=1HZ100V&strategy=moderate');
-            
-            // Verificar se a resposta é JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.warn('⚠️ Resposta de análise não é JSON');
-                return;
-            }
-            
-            if (response.ok) {
-                const analysis = await response.json();
-                displayMarketAnalysis(analysis);
-                console.log('✅ Análise carregada');
-            }
-        } catch (error) {
-            console.error('Erro ao carregar análise:', error);
-        }
-    }
-
-    function displayMarketAnalysis(analysis) {
-        const analysisElement = document.getElementById('marketAnalysis');
-        if (!analysisElement) return;
-
-        analysisElement.innerHTML = `
-            <div class="analysis-card">
-                <h4>Análise do Mercado</h4>
-                <div class="analysis-metrics">
-                    <div class="metric">
-                        <label>Volatilidade:</label>
-                        <span class="value ${analysis.volatility > 0.7 ? 'high' : analysis.volatility > 0.4 ? 'medium' : 'low'}">
-                            ${(analysis.volatility * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                    <div class="metric">
-                        <label>Probabilidade de Sucesso:</label>
-                        <span class="value ${analysis.success_probability > 0.7 ? 'high' : analysis.success_probability > 0.4 ? 'medium' : 'low'}">
-                            ${(analysis.success_probability * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                    <div class="metric">
-                        <label>Taxa Recomendada:</label>
-                        <span class="value">${(analysis.recommended_growth_rate * 100).toFixed(1)}%</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    // 9. Sistema de Notificações - CORRIGIDO
+    // 8. Sistema de Notificações
     function showNotification(message, type = 'info') {
-        // Criar elemento de notificação
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.innerHTML = `
@@ -552,7 +305,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <button onclick="this.parentElement.remove()">&times;</button>
         `;
 
-        // Estilos para a notificação
         notification.style.cssText = `
             position: fixed;
             top: 20px;
@@ -565,13 +317,9 @@ document.addEventListener('DOMContentLoaded', () => {
             justify-content: space-between;
             align-items: center;
             min-width: 300px;
-            max-width: 400px;
             animation: slideIn 0.3s ease;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            font-family: inherit;
         `;
 
-        // Cores baseadas no tipo
         const colors = {
             success: '#4CAF50',
             error: '#f44336',
@@ -580,56 +328,16 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         notification.style.backgroundColor = colors[type] || colors.info;
 
-        // Adicionar ao body
         document.body.appendChild(notification);
 
-        // Remover automaticamente após 5 segundos
         setTimeout(() => {
             if (notification.parentElement) {
                 notification.remove();
             }
         }, 5000);
-
-        // Adicionar estilos CSS se não existirem
-        if (!document.getElementById('notification-styles')) {
-            const styles = document.createElement('style');
-            styles.id = 'notification-styles';
-            styles.textContent = `
-                @keyframes slideIn {
-                    from { 
-                        transform: translateX(100%); 
-                        opacity: 0; 
-                    }
-                    to { 
-                        transform: translateX(0); 
-                        opacity: 1; 
-                    }
-                }
-                
-                .notification button {
-                    background: none;
-                    border: none;
-                    color: white;
-                    font-size: 18px;
-                    cursor: pointer;
-                    margin-left: 10px;
-                    padding: 0;
-                    width: 20px;
-                    height: 20px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-                
-                .notification button:hover {
-                    opacity: 0.8;
-                }
-            `;
-            document.head.appendChild(styles);
-        }
     }
 
-    // 10. Sistema do Chatbot - CORRIGIDO
+    // 9. Sistema do Chatbot
     function setupChatbot() {
         const chatInput = document.getElementById('chatInput');
         const sendChatBtn = document.getElementById('sendChatBtn');
@@ -649,51 +357,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const query = chatInput.value.trim();
             if (!query) return;
 
-            // Adicionar mensagem do usuário
             addMessage(query, true);
             chatInput.value = '';
 
             try {
                 const response = await fetch('/api/chatbot/ask', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ query })
                 });
-
-                // Verificar se a resposta é JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    addMessage('Desculpe, estou com problemas técnicos no momento. Tente novamente mais tarde.');
-                    return;
-                }
 
                 if (response.ok) {
                     const data = await response.json();
                     addMessage(data.response);
                 } else {
-                    addMessage('Desculpe, houve um erro ao processar sua pergunta. Tente novamente.');
+                    addMessage('Desculpe, houve um erro ao processar sua pergunta.');
                 }
             } catch (error) {
                 console.error('Erro no chatbot:', error);
-                addMessage('Desculpe, estou tendo problemas para me conectar. Verifique sua conexão.');
+                addMessage('Desculpe, estou com problemas de conexão.');
             }
         }
 
-        // Event listeners
         sendChatBtn.addEventListener('click', sendMessage);
         chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
+            if (e.key === 'Enter') sendMessage();
         });
-
-        // Focar no input quando o chatbot for aberto
-        chatInput.focus();
     }
 
-    // 11. Funções de Utilidade
+    // 10. Funções Auxiliares
     function displayContractDetails(contract) {
         const detailsElement = document.getElementById('contractDetails');
         if (!detailsElement) return;
@@ -704,8 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="contract-info">
                     <p><strong>ID:</strong> ${contract.contract_id || 'N/A'}</p>
                     <p><strong>Status:</strong> ${contract.status || 'Aberto'}</p>
-                    <p><strong>Valor:</strong> $${contract.amount || 'N/A'}</p>
-                    <p><strong>Symbol:</strong> ${contract.symbol || 'N/A'}</p>
+                    <p><strong>Resultado:</strong> $${contract.result || '0.00'}</p>
                 </div>
             </div>
         `;
@@ -715,7 +406,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentUser) {
             await updateAccountBalance();
             await checkRobotStatus();
-            await loadMarketAnalysis();
         }
     }
 
@@ -724,44 +414,27 @@ document.addEventListener('DOMContentLoaded', () => {
         setupAccumulatorTrading();
         setupChatbot();
 
-        // Atualizar dados a cada 30 segundos se estiver no dashboard
+        // Atualizar dados periodicamente no dashboard
         if (window.location.pathname.includes('dashboard')) {
             setInterval(async () => {
                 if (currentUser) {
                     await updateAccountBalance();
                     await checkRobotStatus();
-                    await loadMarketAnalysis();
                 }
             }, 30000);
         }
     }
 
-    // 12. Acordeão
+    // 11. Acordeão
     const accordionHeaders = document.querySelectorAll('.accordion-header');
-    
-    if (accordionHeaders.length > 0) {
-        accordionHeaders.forEach(header => {
-            header.addEventListener('click', () => {
-                const content = header.nextElementSibling;
-                
-                // Fechar todos os outros
-                accordionHeaders.forEach(h => {
-                    if (h !== header) {
-                        h.classList.remove('active');
-                        h.nextElementSibling.classList.remove('open');
-                    }
-                });
-
-                // Alternar o atual
-                header.classList.toggle('active');
-                content.classList.toggle('open');
-            });
+    accordionHeaders.forEach(header => {
+        header.addEventListener('click', () => {
+            const content = header.nextElementSibling;
+            header.classList.toggle('active');
+            content.classList.toggle('open');
         });
-    }
+    });
 
-    // Expor variáveis globais para outros scripts
-    window.currentUser = currentUser;
-    window.isRobotActive = isRobotActive;
+    // Expor funções globais
     window.showNotification = showNotification;
-    window.updateHomePageForAuth = updateUIAuthenticated;
 });
