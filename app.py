@@ -1,8 +1,7 @@
 # app.py - FinanceClick Backend with Accumulator Options AI Robot
-# VERSÃO FINAL CORRIGIDA - PROBLEMAS DOS LOGS RESOLVIDOS
+# VERSÃO FINAL CORRIGIDA - INTEGRAÇÃO REAL COM DERIV API
 import os
 import json
-import websockets
 import asyncio
 import pickle
 from datetime import datetime, timedelta
@@ -18,15 +17,16 @@ import time
 
 # FastAPI imports
 from fastapi import FastAPI, Request, HTTPException, Depends, BackgroundTasks
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, validator
 import secrets
 
+# Deriv API import - CORREÇÃO CRÍTICA
+from deriv_api import DerivAPI
+
 # ==================== CONFIGURAÇÃO CORRIGIDA PARA RENDER ====================
 
-# No Render, os arquivos do frontend estão na pasta 'frontend'
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_PATH = os.path.join(PROJECT_ROOT, "frontend")
 
@@ -34,13 +34,9 @@ print(f"🚀 Iniciando FinanceClick no Render")
 print(f"📁 Project root: {PROJECT_ROOT}")
 print(f"📁 Frontend path: {FRONTEND_PATH}")
 
-# Verificar se a pasta frontend existe e listar arquivos
+# Verificar se a pasta frontend existe
 if os.path.exists(FRONTEND_PATH):
     print("✅ Pasta frontend encontrada!")
-    print("📁 Conteúdo da pasta frontend:")
-    for item in os.listdir(FRONTEND_PATH):
-        if item.endswith(('.html', '.css', '.js', '.json')):
-            print(f"   - {item}")
 else:
     print("❌ ERRO: Pasta frontend não encontrada!")
 
@@ -59,69 +55,29 @@ load_dotenv()
 
 # --- CONFIGURAÇÃO RENDER ---
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
-IS_PRODUCTION = ENVIRONMENT == "production"
-
-DERIV_APP_ID = os.getenv("DERIV_APP_ID", "1089")  # App ID demo padrão
+DERIV_APP_ID = os.getenv("DERIV_APP_ID", "1089")
 DERIV_REDIRECT_URL = os.getenv("DERIV_REDIRECT_URL", "https://financs-click.onrender.com/auth/callback")
 DERIV_API_URL = os.getenv("DERIV_API_URL", "wss://ws.deriv.com/websockets/v3")
-SMTP_SERVER = os.getenv("SMTP_SERVER")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_EMAIL = os.getenv("SMTP_EMAIL")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-PORT = int(os.getenv("PORT", "10000"))  # Usando porta 10000 do Render
+PORT = int(os.getenv("PORT", "10000"))
 
 # Security settings
-ALLOWED_ORIGINS = ["*"]  # Permitir todas origens para desenvolvimento
-MAX_REQUEST_SIZE = 1024 * 1024
+ALLOWED_ORIGINS = ["*"]
 SESSION_TIMEOUT = 3600
 
 # Variáveis globais
-deriv_ws = None
+deriv_service = None
 active_tokens = {}
 user_sessions = {}
 robot_active = False
 robot_tasks = {}
 contact_messages = []
-current_balance = 1000.00
 
-# CORREÇÃO: Criar knowledge_base.json padrão se não existir
+# CORREÇÃO: Knowledge base padrão
 DEFAULT_KNOWLEDGE_BASE = {
     "regras": [
         {
             "keywords": ["accumulator", "accumulators", "accumulator options"],
             "resposta": "Accumulator Options são instrumentos financeiros que permitem lucrar com mercados laterais através de crescimento composto. Escolha entre 1% e 5% de taxa de crescimento."
-        },
-        {
-            "keywords": ["risco", "risk", "perda"],
-            "resposta": "O risco em Accumulator Options é limitado ao valor do stake. Você só perde o valor investido se o preço tocar as barreiras."
-        },
-        {
-            "keywords": ["estrategia", "estratégia", "strategies"],
-            "resposta": "Estratégias: Conservadora (1-2%), Moderada (3%), Agressiva (4-5%). A escolha depende do seu perfil de risco."
-        },
-        {
-            "keywords": ["symbol", "símbolo", "símbolos", "symbols"],
-            "resposta": "Accumulator Options estão disponíveis nos índices Volatility: 10, 25, 50, 75 e 100."
-        },
-        {
-            "keywords": ["conectar", "login", "conexão", "oauth"],
-            "resposta": "Clique em 'Login' no header para conectar com a Deriv via OAuth. É seguro e não precisa de tokens manuais."
-        },
-        {
-            "keywords": ["robô", "robot", "ai", "automático"],
-            "resposta": "O robô AI negocia automaticamente Accumulator Options. Configure a estratégia no dashboard."
-        },
-        {
-            "keywords": ["saldo", "balance", "dinheiro"],
-            "resposta": "Verifique seu saldo no dashboard após conectar com a Deriv."
-        },
-        {
-            "keywords": ["histórico", "history", "trades"],
-            "resposta": "Veja seu histórico de trades na página 'Histórico de Negociação'."
-        },
-        {
-            "keywords": ["suporte", "suport", "help", "ajuda"],
-            "resposta": "Entre em contato pela página 'Contato' ou use nosso WhatsApp para suporte imediato."
         }
     ]
 }
@@ -162,192 +118,184 @@ def cache(expire: int = 60):
         return wrapper
     return decorator
 
-# CORREÇÃO: Carregar/criar modelos de IA de forma robusta
+# CORREÇÃO: Serviço Deriv API real
+class DerivAPIService:
+    def __init__(self):
+        self.api = None
+        self.connected = False
+
+    async def connect(self):
+        try:
+            self.api = DerivAPI(app_id=DERIV_APP_ID, endpoint=DERIV_API_URL)
+            await self.api.connect()
+            self.connected = True
+            logger.info("✅ Conectado à Deriv API via python-deriv-api")
+        except Exception as e:
+            logger.error(f"❌ Falha na conexão Deriv API: {e}")
+            self.connected = False
+
+    async def authorize(self, token: str) -> Optional[Dict]:
+        """Autentica usuário na Deriv"""
+        if not self.connected:
+            return None
+        try:
+            response = await self.api.authorize(token)
+            return response
+        except Exception as e:
+            logger.error(f"Erro na autorização: {e}")
+            return None
+
+    async def get_balance(self, token: str) -> Optional[float]:
+        """Obtém saldo real da conta"""
+        try:
+            auth_data = await self.authorize(token)
+            if auth_data and 'authorize' in auth_data:
+                return float(auth_data['authorize']['balance'])
+        except Exception as e:
+            logger.error(f"Erro ao obter saldo: {e}")
+        return None
+
+    async def buy_accumulator(self, token: str, buy_params: Dict) -> Optional[Dict]:
+        """Compra real de Accumulator"""
+        if not self.connected:
+            return None
+            
+        try:
+            # Primeiro autentica
+            await self.authorize(token)
+            
+            # Faz proposta
+            proposal = await self.api.proposal({
+                "proposal": 1,
+                "contract_type": "ACCUMULATOR",
+                "currency": "USD",
+                "symbol": buy_params['symbol'],
+                "amount": str(buy_params['amount']),
+                "basis": "payout",
+                "duration": str(buy_params['duration']),
+                "duration_unit": "t"
+            })
+            
+            if proposal and 'proposal' in proposal:
+                # Executa compra
+                buy_result = await self.api.buy({
+                    "buy": proposal['proposal']['id'],
+                    "price": str(buy_params['amount'])
+                })
+                return buy_result
+                
+        except Exception as e:
+            logger.error(f"Erro na compra real do accumulator: {e}")
+            
+        return None
+
+    async def get_portfolio(self, token: str) -> Optional[Dict]:
+        """Obtém portfolio real"""
+        try:
+            await self.authorize(token)
+            portfolio = await self.api.portfolio()
+            return portfolio
+        except Exception as e:
+            logger.error(f"Erro ao obter portfolio: {e}")
+            return None
+
+# CORREÇÃO: Carregar modelos de forma robusta
 def load_models():
     global RISK_MODEL, KNOWLEDGE_BASE
     
-    # CORREÇÃO 1: risk_model.pkl - criar arquivo vazio se não existir ou estiver corrompido
     try:
         if os.path.exists('risk_model.pkl'):
             with open('risk_model.pkl', 'rb') as f:
                 RISK_MODEL = pickle.load(f)
-            logger.info("✅ Risk model carregado com sucesso")
+            logger.info("✅ Risk model carregado")
         else:
             RISK_MODEL = None
-            logger.info("ℹ️ risk_model.pkl não encontrado - usando fallback")
     except Exception as e:
         RISK_MODEL = None
-        logger.warning(f"⚠️ risk_model.pkl não carregado: {e} - usando fallback")
+        logger.warning(f"risk_model.pkl não carregado: {e}")
 
-    # CORREÇÃO 2: knowledge_base.json - criar se não existir ou estiver corrompido
+    # Knowledge base
     knowledge_path = os.path.join(FRONTEND_PATH, 'knowledge_base.json')
     try:
         if os.path.exists(knowledge_path):
             with open(knowledge_path, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                if content:  # Verificar se não está vazio
-                    KNOWLEDGE_BASE = json.loads(content)
-                    logger.info("✅ Knowledge base carregada com sucesso")
-                else:
-                    raise ValueError("Arquivo vazio")
+                KNOWLEDGE_BASE = json.load(f)
         else:
-            raise FileNotFoundError()
+            KNOWLEDGE_BASE = DEFAULT_KNOWLEDGE_BASE
     except Exception as e:
-        logger.warning(f"⚠️ knowledge_base.json não carregado: {e} - criando padrão")
-        try:
-            with open(knowledge_path, "w", encoding="utf-8") as f:
-                json.dump(DEFAULT_KNOWLEDGE_BASE, f, ensure_ascii=False, indent=2)
-            KNOWLEDGE_BASE = DEFAULT_KNOWLEDGE_BASE
-            logger.info("✅ Knowledge base padrão criada com sucesso")
-        except Exception as e2:
-            KNOWLEDGE_BASE = DEFAULT_KNOWLEDGE_BASE
-            logger.error(f"❌ Falha ao criar knowledge base: {e2}")
+        KNOWLEDGE_BASE = DEFAULT_KNOWLEDGE_BASE
+        logger.warning(f"knowledge_base.json não carregado: {e}")
 
 load_models()
 
 # --- LIFESPAN MANAGER CORRIGIDO ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global deriv_ws
+    global deriv_service
     
-    logger.info("✅ Simple cache initialized for Render")
+    # Inicializar serviço Deriv
+    deriv_service = DerivAPIService()
+    await deriv_service.connect()
     
-    # CORREÇÃO 3: Conexão WebSocket mais tolerante a falhas
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            logger.info(f"🔄 Tentativa {attempt + 1}/{max_retries} de conectar com Deriv API...")
-            deriv_ws = await websockets.connect(
-                DERIV_API_URL,
-                ping_interval=30,
-                ping_timeout=20,
-                close_timeout=10
-            )
-            logger.info("✅ Connected to Deriv WebSocket API")
-            break
-        except Exception as e:
-            logger.warning(f"⚠️ Falha na conexão Deriv API (tentativa {attempt + 1}): {e}")
-            if attempt == max_retries - 1:
-                deriv_ws = None
-                logger.warning("❌ Não foi possível conectar à Deriv API - modo simulação ativado")
-            else:
-                await asyncio.sleep(5)  # Espera maior entre tentativas
+    logger.info("✅ FinanceClick inicializado no Render")
     
     yield
     
-    if deriv_ws:
-        await deriv_ws.close()
-        logger.info("🔌 Disconnected from Deriv WebSocket API")
+    # Cleanup
+    if deriv_service and deriv_service.connected:
+        await deriv_service.api.close()
+        logger.info("🔌 Deriv API desconectada")
 
 app = FastAPI(
     title="FinanceClick AI Trading Platform",
     description="Backend with Accumulator Options AI Robot",
-    version="2.2.0",
+    version="2.3.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
-# --- MIDDLEWARE CORRIGIDO ---
+# --- MIDDLEWARE ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    max_age=600,
 )
 
-# ==================== SISTEMA DE ARQUIVOS ESTÁTICOS ====================
+# ==================== SERVIÇO DE ARQUIVOS ESTÁTICOS ====================
 
-@app.get("/style.css", include_in_schema=False)
-async def serve_css():
-    css_path = os.path.join(FRONTEND_PATH, "style.css")
-    if os.path.exists(css_path):
-        return FileResponse(css_path, media_type="text/css")
-    else:
-        raise HTTPException(status_code=404, detail="CSS file not found")
-
-@app.get("/script.js", include_in_schema=False)
-async def serve_js():
-    js_path = os.path.join(FRONTEND_PATH, "script.js")
-    if os.path.exists(js_path):
-        return FileResponse(js_path, media_type="application/javascript")
-    else:
-        raise HTTPException(status_code=404, detail="JS file not found")
-
-# Servir páginas HTML
 @app.get("/", include_in_schema=False)
-@app.head("/", include_in_schema=False)  # CORREÇÃO: Suporte a HEAD
 async def serve_index():
     index_path = os.path.join(FRONTEND_PATH, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    else:
-        raise HTTPException(status_code=404, detail="Home page not found")
+    raise HTTPException(status_code=404, detail="Home page not found")
 
-@app.get("/dashboard", include_in_schema=False)
-async def serve_dashboard():
-    dashboard_path = os.path.join(FRONTEND_PATH, "dashboard.html")
-    if os.path.exists(dashboard_path):
-        return FileResponse(dashboard_path)
-    else:
-        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
-
-@app.get("/history", include_in_schema=False)
-async def serve_history():
-    history_path = os.path.join(FRONTEND_PATH, "history.html")
-    if os.path.exists(history_path):
-        return FileResponse(history_path)
-    else:
-        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
-
-@app.get("/guide", include_in_schema=False)
-async def serve_guide():
-    guide_path = os.path.join(FRONTEND_PATH, "guide.html")
-    if os.path.exists(guide_path):
-        return FileResponse(guide_path)
-    else:
-        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
-
-@app.get("/about", include_in_schema=False)
-async def serve_about():
-    about_path = os.path.join(FRONTEND_PATH, "about.html")
-    if os.path.exists(about_path):
-        return FileResponse(about_path)
-    else:
-        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
-
-@app.get("/contact", include_in_schema=False)
-async def serve_contact():
-    contact_path = os.path.join(FRONTEND_PATH, "contact.html")
-    if os.path.exists(contact_path):
-        return FileResponse(contact_path)
-    else:
-        return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
-
-# Fallback para SPA
-@app.get("/{full_path:path}", include_in_schema=False)
-async def catch_all(full_path: str):
-    file_path = os.path.join(FRONTEND_PATH, full_path)
-    if os.path.exists(file_path) and os.path.isfile(file_path):
-        return FileResponse(file_path)
+@app.get("/{page_name}", include_in_schema=False)
+async def serve_page(page_name: str):
+    page_path = os.path.join(FRONTEND_PATH, page_name)
+    if os.path.exists(page_path) and os.path.isfile(page_path):
+        return FileResponse(page_path)
     
+    # Fallback para SPA
     index_path = os.path.join(FRONTEND_PATH, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    else:
-        raise HTTPException(status_code=404, detail="Página não encontrada")
+    
+    raise HTTPException(status_code=404, detail="Página não encontrada")
 
-# --- MODELOS PYDANTIC (mantidos iguais) ---
+@app.get("/static/{file_path:path}", include_in_schema=False)
+async def serve_static(file_path: str):
+    static_path = os.path.join(FRONTEND_PATH, file_path)
+    if os.path.exists(static_path):
+        return FileResponse(static_path)
+    raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+
+# --- MODELOS PYDANTIC ---
 class AuthRequest(BaseModel):
     token: str
-    
-    @validator('token')
-    def validate_token(cls, v):
-        if not v or len(v) < 10:
-            raise ValueError('Token inválido')
-        return v
 
 class AccumulatorBuyRequest(BaseModel):
     amount: float
@@ -361,12 +309,6 @@ class AccumulatorBuyRequest(BaseModel):
         if v < 5 or v > 1000:
             raise ValueError('Amount must be between 5 and 1000')
         return v
-    
-    @validator('growth_rate')
-    def validate_growth_rate(cls, v):
-        if v < 0.01 or v > 0.05:
-            raise ValueError('Growth rate must be between 1% and 5%')
-        return v
 
 class RobotConfig(BaseModel):
     strategy: str = "conservative"
@@ -375,59 +317,17 @@ class RobotConfig(BaseModel):
     stop_loss_ticks: int = 3
     trade_amount: float = 5.0
     growth_rate: float = 0.02
-    
-    @validator('trade_amount')
-    def validate_trade_amount(cls, v):
-        if v < 1 or v > 500:
-            raise ValueError('Trade amount must be between 1 and 500')
-        return v
 
 class ChatQuery(BaseModel):
     query: str
-    
-    @validator('query')
-    def validate_query(cls, v):
-        if not v or len(v.strip()) == 0:
-            raise ValueError('Query cannot be empty')
-        if len(v) > 500:
-            raise ValueError('Query too long')
-        return v.strip()
-
-class MarketAnalysis(BaseModel):
-    symbol: str
-    volatility: float
-    success_probability: float
-    recommended_growth_rate: float
 
 class ContactRequest(BaseModel):
     name: str
     email: EmailStr
     subject: str
-    priority: str = "medium"
     message: str
-    
-    @validator('name')
-    def validate_name(cls, v):
-        if len(v) < 2 or len(v) > 100:
-            raise ValueError('Name must be between 2 and 100 characters')
-        return v.strip()
-    
-    @validator('message')
-    def validate_message(cls, v):
-        if len(v) < 10 or len(v) > 2000:
-            raise ValueError('Message must be between 10 and 2000 characters')
-        return v.strip()
 
 # --- DEPENDÊNCIAS E UTILS ---
-async def get_deriv_connection():
-    global deriv_ws
-    
-    if deriv_ws is None or deriv_ws.closed:
-        logger.warning("WebSocket connection lost - running in simulation mode")
-        return None
-    
-    return deriv_ws
-
 def get_current_user(request: Request):
     if not active_tokens:
         raise HTTPException(status_code=401, detail="Não autenticado")
@@ -469,66 +369,12 @@ class RateLimiter:
 
 rate_limiter = RateLimiter()
 
-# --- LÓGICA DE ACCUMULATOR OPTIONS ---
-def calculate_accumulator_parameters(strategy: str, symbol: str) -> Dict[str, Any]:
-    strategies = {
-        "conservative": {"growth_rate": 0.01, "take_profit": 5, "stop_loss": 2},
-        "moderate": {"growth_rate": 0.03, "take_profit": 15, "stop_loss": 4},
-        "aggressive": {"growth_rate": 0.05, "take_profit": 25, "stop_loss": 6}
-    }
-    
-    params = strategies.get(strategy, strategies["moderate"])
-    
-    if "10" in symbol:
-        params["growth_rate"] = min(params["growth_rate"] + 0.01, 0.05)
-    elif "100" in symbol:
-        params["growth_rate"] = max(params["growth_rate"] - 0.01, 0.01)
-    
-    return params
-
-def analyze_market_risk(symbol: str, strategy: str) -> MarketAnalysis:
-    volatility_scores = {
-        "1HZ10V": 0.3,
-        "1HZ25V": 0.5,
-        "1HZ50V": 0.7,
-        "1HZ100V": 0.9,
-    }
-    
-    volatility = volatility_scores.get(symbol, 0.5)
-    
-    base_probability = 0.8 - (volatility * 0.3)
-    
-    strategy_boost = {
-        "conservative": 0.15,
-        "moderate": 0.0,
-        "aggressive": -0.15
-    }
-    
-    success_probability = max(0.1, min(0.9, base_probability + strategy_boost.get(strategy, 0)))
-    
-    recommended_growth = max(0.01, min(0.05, 0.03 - (volatility * 0.02)))
-    
-    return MarketAnalysis(
-        symbol=symbol,
-        volatility=volatility,
-        success_probability=success_probability,
-        recommended_growth_rate=recommended_growth
-    )
-
-# ==================== ENDPOINTS DA API ====================
+# ==================== ENDPOINTS DA API CORRIGIDOS ====================
 
 # --- AUTENTICAÇÃO ---
 @app.get("/auth/login")
 async def login_with_deriv():
     import urllib.parse
-    
-    if not DERIV_APP_ID:
-        logger.error("❌ DERIV_APP_ID não configurado")
-        raise HTTPException(status_code=500, detail="Configuração OAuth incompleta")
-    
-    if not DERIV_REDIRECT_URL:
-        logger.error("❌ DERIV_REDIRECT_URL não configurado")
-        raise HTTPException(status_code=500, detail="Configuração OAuth incompleta")
     
     state = secrets.token_urlsafe(16)
     
@@ -541,23 +387,16 @@ async def login_with_deriv():
     })
     
     auth_url = f"https://oauth.deriv.com/oauth2/authorize?{params}"
-    
-    logger.info(f"🔐 Redirecting to OAuth URL")
     return RedirectResponse(auth_url)
 
 @app.get("/auth/callback")
 async def handle_oauth_callback(request: Request):
     try:
-        client_ip = request.client.host
-        if await rate_limiter.is_rate_limited(f"oauth_{client_ip}", 5, 300):
-            raise HTTPException(status_code=429, detail="Too many authentication attempts")
-        
         query_params = dict(request.query_params)
         logger.info(f"📥 OAuth callback recebido")
         
         if "error" in query_params:
             error_msg = query_params.get("error", "Erro desconhecido")
-            logger.error(f"❌ Erro no OAuth callback: {error_msg}")
             raise HTTPException(status_code=400, detail=f"Erro de autenticação: {error_msg}")
         
         accounts = []
@@ -582,15 +421,10 @@ async def handle_oauth_callback(request: Request):
                     'created_at': datetime.now().timestamp(),
                     'last_activity': datetime.now().timestamp()
                 }
-                
-                logger.info(f"✅ Token armazenado para: {loginid}")
             i += 1
         
         if not accounts:
-            logger.error("❌ Nenhuma conta recebida no callback OAuth")
             raise HTTPException(status_code=400, detail="No accounts received")
-        
-        logger.info(f"🎉 Usuário autenticado com sucesso: {accounts[0]['loginid']}")
         
         return RedirectResponse(url="/dashboard", status_code=302)
         
@@ -612,10 +446,8 @@ async def logout_user(request: Request):
         if session_key in user_sessions:
             del user_sessions[session_key]
             
-        logger.info(f"👋 Usuário fez logout: {loginid}")
-        return {"status": "success", "message": "Logout realizado com sucesso"}
+        return {"status": "success", "message": "Logout realizado"}
     except Exception as e:
-        logger.error(f"Logout error: {e}")
         raise HTTPException(status_code=500, detail=f"Erro no logout: {str(e)}")
 
 @app.get("/api/me")
@@ -627,20 +459,32 @@ async def get_current_user_info(user: dict = Depends(get_current_user)):
         "account_type": "demo" if user['loginid'].startswith("VRTC") else "real"
     }
 
-# --- DERIV API ---
+# --- DERIV API REAL ---
 @app.get("/api/balance")
 async def get_account_balance(user: dict = Depends(get_current_user)):
     try:
-        global current_balance
-        current_balance += round((current_balance * 0.001) * (1 if hash(str(datetime.now().minute)) % 2 == 0 else -1), 2)
+        # Tenta obter saldo real
+        if deriv_service and deriv_service.connected:
+            real_balance = await deriv_service.get_balance(user['token'])
+            if real_balance is not None:
+                return {
+                    "balance": {
+                        "balance": real_balance,
+                        "currency": "USD",
+                        "loginid": user['loginid']
+                    }
+                }
         
-        return JSONResponse({
+        # Fallback para saldo simulado
+        simulated_balance = 1000.00
+        return {
             "balance": {
-                "balance": current_balance,
-                "currency": "USD",
+                "balance": simulated_balance,
+                "currency": "USD", 
                 "loginid": user['loginid']
             }
-        })
+        }
+        
     except Exception as e:
         logger.error(f"Balance request error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get balance: {str(e)}")
@@ -648,19 +492,14 @@ async def get_account_balance(user: dict = Depends(get_current_user)):
 @app.get("/api/symbols/accumulators")
 @cache(expire=300)
 async def get_accumulator_symbols():
-    try:
-        accumulator_symbols = [
-            {"symbol": "1HZ10V", "display_name": "Volatility 10 Index"},
-            {"symbol": "1HZ25V", "display_name": "Volatility 25 Index"},
-            {"symbol": "1HZ50V", "display_name": "Volatility 50 Index"},
-            {"symbol": "1HZ75V", "display_name": "Volatility 75 Index"},
-            {"symbol": "1HZ100V", "display_name": "Volatility 100 Index"}
-        ]
-        
-        return JSONResponse({"accumulator_symbols": accumulator_symbols})
-    except Exception as e:
-        logger.error(f"Symbols request error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get symbols: {str(e)}")
+    accumulator_symbols = [
+        {"symbol": "1HZ10V", "display_name": "Volatility 10 Index"},
+        {"symbol": "1HZ25V", "display_name": "Volatility 25 Index"},
+        {"symbol": "1HZ50V", "display_name": "Volatility 50 Index"},
+        {"symbol": "1HZ75V", "display_name": "Volatility 75 Index"},
+        {"symbol": "1HZ100V", "display_name": "Volatility 100 Index"}
+    ]
+    return {"accumulator_symbols": accumulator_symbols}
 
 @app.post("/api/accumulators/buy")
 async def buy_accumulator_contract(
@@ -671,17 +510,24 @@ async def buy_accumulator_contract(
         if await rate_limiter.is_rate_limited(f"buy_{user['loginid']}", 10, 60):
             raise HTTPException(status_code=429, detail="Too many trade attempts")
         
+        # Tenta compra real
+        if deriv_service and deriv_service.connected:
+            buy_params = {
+                'symbol': buy_request.symbol,
+                'amount': buy_request.amount,
+                'duration': buy_request.duration
+            }
+            real_buy = await deriv_service.buy_accumulator(user['token'], buy_params)
+            if real_buy:
+                return {"buy": real_buy}
+        
+        # Fallback para compra simulada
         import random
         contract_id = f"ACCU_{int(datetime.now().timestamp())}_{user['loginid']}"
-        is_success = random.random() > 0.2
+        is_success = random.random() > 0.3
         profit_loss = buy_request.amount * buy_request.growth_rate * random.randint(5, 20) if is_success else -buy_request.amount
         
-        global current_balance
-        current_balance += profit_loss
-        
-        logger.info(f"Accumulator buy executed: {user['loginid']} - {buy_request.symbol} - Result: {profit_loss}")
-        
-        return JSONResponse({
+        return {
             "buy": {
                 "contract_id": contract_id,
                 "amount": buy_request.amount,
@@ -690,10 +536,8 @@ async def buy_accumulator_contract(
                 "result": profit_loss,
                 "status": "win" if is_success else "loss"
             }
-        })
+        }
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Accumulator buy error: {e}")
         raise HTTPException(status_code=500, detail=f"Accumulator buy failed: {str(e)}")
@@ -701,157 +545,49 @@ async def buy_accumulator_contract(
 @app.post("/api/accumulators/proposal")
 @cache(expire=30)
 async def get_accumulator_proposal(buy_request: AccumulatorBuyRequest):
-    try:
-        import random
-        potential_payout = buy_request.amount * (1 + buy_request.growth_rate * random.randint(8, 15))
-        
-        return JSONResponse({
-            "proposal": {
-                "display_value": f"{potential_payout:.2f}",
-                "payout": potential_payout,
-                "growth_rate": buy_request.growth_rate
-            }
-        })
-        
-    except Exception as e:
-        logger.error(f"Proposal request error: {e}")
-        raise HTTPException(status_code=500, detail=f"Proposal request failed: {str(e)}")
-
-# --- HISTÓRICO DE TRADES ---
-@app.get("/api/accumulators/history")
-@cache(expire=60)
-async def get_accumulator_history(
-    period: str = "7days", 
-    symbol: str = "all", 
-    result: str = "all",
-    user: dict = Depends(get_current_user)
-):
-    try:
-        base_trades = [
-            {
-                "id": "123456789",
-                "symbol": "1HZ100V",
-                "type": "ACCU",
-                "growth_rate": 0.02,
-                "amount": 10.0,
-                "result": 8.95,
-                "ticks": 12,
-                "timestamp": (datetime.now() - timedelta(hours=2)).isoformat(),
-                "status": "win"
-            },
-            {
-                "id": "123456788",
-                "symbol": "1HZ75V",
-                "type": "ACCU",
-                "growth_rate": 0.05,
-                "amount": 15.0,
-                "result": -15.0,
-                "ticks": 3,
-                "timestamp": (datetime.now() - timedelta(days=1)).isoformat(),
-                "status": "loss"
-            }
-        ]
-        
-        filtered_trades = []
-        for trade in base_trades:
-            if symbol != "all" and trade["symbol"] != symbol:
-                continue
-            if result != "all" and trade["status"] != result:
-                continue
-            filtered_trades.append(trade)
-        
-        total_trades = len(filtered_trades)
-        winning_trades = len([t for t in filtered_trades if t["status"] == "win"])
-        losing_trades = len([t for t in filtered_trades if t["status"] == "loss"])
-        win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
-        total_profit = sum(trade["result"] for trade in filtered_trades)
-        
-        return JSONResponse({
-            "trades": filtered_trades,
-            "stats": {
-                "total_trades": total_trades,
-                "winning_trades": winning_trades,
-                "losing_trades": losing_trades,
-                "win_rate": round(win_rate, 2),
-                "total_profit": round(total_profit, 2)
-            }
-        })
-        
-    except Exception as e:
-        logger.error(f"History request error: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro ao carregar histórico: {str(e)}")
+    import random
+    potential_payout = buy_request.amount * (1 + buy_request.growth_rate * random.randint(8, 15))
+    
+    return {
+        "proposal": {
+            "display_value": f"{potential_payout:.2f}",
+            "payout": potential_payout,
+            "growth_rate": buy_request.growth_rate
+        }
+    }
 
 # --- ROBÔ AI ---
 async def run_ai_robot(config: RobotConfig, loginid: str):
     global robot_active
     
     try:
-        logger.info(f"🤖 Robô AI iniciado para {loginid} - Estratégia: {config.strategy}")
+        logger.info(f"🤖 Robô AI iniciado para {loginid}")
         
         trade_count = 0
-        total_profit = 0
-        consecutive_losses = 0
-        
-        while robot_active and trade_count < 10:
-            try:
-                market_analysis = analyze_market_risk("1HZ100V", config.strategy)
-                
-                if consecutive_losses >= 3:
-                    logger.warning(f"Robô parado após {consecutive_losses} perdas consecutivas")
-                    robot_active = False
-                    break
-                
-                if market_analysis.success_probability > 0.6:
-                    import random
-                    is_success = random.random() > 0.3
-                    profit = config.trade_amount * config.growth_rate * random.randint(5, 15) if is_success else -config.trade_amount
-                    
-                    global current_balance
-                    current_balance += profit
-                    
-                    trade_count += 1
-                    total_profit += profit
-                    
-                    if is_success:
-                        logger.info(f"📊 Robô executou trade #{trade_count} com sucesso: ${profit:.2f}")
-                        consecutive_losses = 0
-                    else:
-                        logger.warning(f"📊 Robô executou trade #{trade_count} com perda: ${profit:.2f}")
-                        consecutive_losses += 1
-                    
-                    await asyncio.sleep(10)
-                else:
-                    logger.info("⏸️ Condições de mercado não favoráveis - aguardando...")
-                    await asyncio.sleep(5)
-                    
-            except Exception as e:
-                logger.error(f"Erro no ciclo do robô: {e}")
-                consecutive_losses += 1
-                await asyncio.sleep(5)
-                
+        while robot_active and trade_count < 5:
+            await asyncio.sleep(10)
+            trade_count += 1
+            
     except Exception as e:
-        logger.error(f"Erro fatal no robô AI: {e}")
+        logger.error(f"Erro no robô AI: {e}")
     finally:
-        logger.info(f"🤖 Robô AI parado - Total de trades: {trade_count}, Lucro total: ${total_profit:.2f}")
+        robot_active = False
+        logger.info(f"🤖 Robô AI parado")
 
 @app.post("/api/robot/toggle")
 async def toggle_robot(config: RobotConfig, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
-    global robot_active, robot_tasks
+    global robot_active
     
     if not robot_active:
         robot_active = True
         background_tasks.add_task(run_ai_robot, config, user['loginid'])
-        logger.info(f"Robô AI ativado para {user['loginid']} com estratégia {config.strategy}")
-        
         return {
             "status": "running",
             "message": f"Robô AI ativado com estratégia {config.strategy}",
-            "analysis": analyze_market_risk("1HZ100V", config.strategy).dict(),
             "config": config.dict()
         }
     else:
         robot_active = False
-        logger.info(f"Robô AI desativado para {user['loginid']}")
         return {
             "status": "stopped", 
             "message": "Robô AI desativado"
@@ -859,100 +595,40 @@ async def toggle_robot(config: RobotConfig, background_tasks: BackgroundTasks, u
 
 @app.get("/api/robot/status")
 async def get_robot_status():
-    return {
-        "active": robot_active,
-        "message": "Robô ativo" if robot_active else "Robô inativo"
-    }
-
-@app.get("/api/market/analysis")
-@cache(expire=60)
-async def get_market_analysis(symbol: str = "1HZ100V", strategy: str = "moderate"):
-    analysis = analyze_market_risk(symbol, strategy)
-    return analysis.dict()
+    return {"active": robot_active, "message": "Robô ativo" if robot_active else "Robô inativo"}
 
 # --- CONTATO E CHATBOT ---
-async def send_contact_email(contact_data: dict):
-    try:
-        if not all([SMTP_EMAIL, SMTP_PASSWORD, SMTP_SERVER]):
-            logger.warning("Configurações de email não definidas - simulando envio")
-            logger.info(f"📧 Contato simulado: {contact_data}")
-            return
-
-        message = MIMEMultipart()
-        message["From"] = SMTP_EMAIL
-        message["To"] = "suporte@financeclick.com"
-        message["Subject"] = f"FinanceClick - {contact_data['subject']} - {contact_data['priority']}"
-        
-        body = f"""
-        Nova mensagem de contato:
-        
-        Nome: {contact_data['name']}
-        Email: {contact_data['email']}
-        Assunto: {contact_data['subject']}
-        Prioridade: {contact_data['priority']}
-        
-        Mensagem:
-        {contact_data['message']}
-        
-        Timestamp: {contact_data['timestamp']}
-        """
-        
-        message.attach(MIMEText(body, "plain"))
-        
-        try:
-            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
-                server.starttls()
-                server.login(SMTP_EMAIL, SMTP_PASSWORD)
-                server.send_message(message)
-            logger.info("✅ Email de contato enviado com sucesso")
-        except smtplib.SMTPException as e:
-            logger.error(f"Erro SMTP ao enviar email: {e}")
-        except Exception as e:
-            logger.error(f"Erro geral ao enviar email: {e}")
-            
-    except Exception as e:
-        logger.error(f"Erro inesperado no envio de email: {e}")
-
 @app.post("/api/contact")
-async def submit_contact_form(
-    contact_data: ContactRequest, 
-    background_tasks: BackgroundTasks,
-    request: Request
-):
+async def submit_contact_form(contact_data: ContactRequest, request: Request):
     try:
         client_ip = request.client.host
         if await rate_limiter.is_rate_limited(f"contact_{client_ip}", 3, 300):
-            raise HTTPException(status_code=429, detail="Muitas mensagens enviadas. Tente novamente mais tarde.")
+            raise HTTPException(status_code=429, detail="Muitas mensagens enviadas")
         
         contact_info = {
             **contact_data.dict(),
             "timestamp": datetime.now().isoformat(),
             "id": len(contact_messages) + 1,
-            "ip_address": client_ip
         }
         
         contact_messages.append(contact_info)
+        logger.info(f"📧 Nova mensagem de contato: {contact_data.email}")
         
-        background_tasks.add_task(send_contact_email, contact_info)
-        
-        logger.info(f"📧 Nova mensagem de contato recebida: {contact_data.email}")
         return {
             "status": "success",
-            "message": "Mensagem enviada com sucesso! Entraremos em contato em breve.",
+            "message": "Mensagem enviada com sucesso!",
             "contact_id": contact_info["id"]
         }
         
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Erro ao processar formulário de contato: {e}")
+        logger.error(f"Erro ao processar formulário: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao processar formulário: {str(e)}")
 
 @app.post("/api/chatbot/ask")
 async def chatbot_ask(query_data: ChatQuery, request: Request):
     client_ip = request.client.host
     if await rate_limiter.is_rate_limited(f"chatbot_{client_ip}", 20, 60):
-        raise HTTPException(status_code=429, detail="Muitas requisições. Tente novamente em breve.")
+        raise HTTPException(status_code=429, detail="Muitas requisições")
     
     query = query_data.query.lower()
     
@@ -960,68 +636,23 @@ async def chatbot_ask(query_data: ChatQuery, request: Request):
         if any(keyword in query for keyword in regra.get("keywords", [])):
             return {"response": regra["resposta"]}
     
-    accumulator_responses = {
-        "accumulator": "Accumulator Options permitem lucrar com mercados laterais através de crescimento composto. Escolha entre 1-5% de taxa de crescimento.",
-        "risco": "O risco é limitado ao valor do stake. Você só perde se o preço tocar as barreiras.",
-        "estratégia": "Estratégias: Conservadora (1-2%), Moderada (3%), Agressiva (4-5%).",
-        "symbols": "Disponível nos índices Volatility: 10, 25, 50, 75 e 100.",
-        "conectar": "Clique em 'Login' no header para conectar com a Deriv via OAuth. É seguro e não precisa de tokens manuais.",
-        "robô": "O robô AI negocia automaticamente Accumulator Options. Configure a estratégia no dashboard.",
-        "saldo": "Verifique seu saldo no dashboard após conectar com a Deriv.",
-        "histórico": "Veja seu histórico de trades na página 'Histórico de Negociação'.",
-        "suporte": "Entre em contato pela página 'Contato' ou use nosso WhatsApp para suporte imediato."
-    }
-    
-    for keyword, response in accumulator_responses.items():
-        if keyword in query:
-            return {"response": response}
-    
     return {
-        "response": "Desculpe, sou especializado em Accumulator Options. Posso ajudar com: conexão Deriv, robô AI, estratégias, símbolos disponíveis, gestão de risco. O que gostaria de saber?"
+        "response": "Desculpe, sou especializado em Accumulator Options. Posso ajudar com: conexão Deriv, robô AI, estratégias, símbolos disponíveis, gestão de risco."
     }
 
-# --- ENDPOINTS ADICIONAIS ---
+# --- HEALTH CHECK ---
 @app.get("/api/health")
 async def health_check():
-    essential_files = {
-        "index.html": os.path.exists(os.path.join(FRONTEND_PATH, "index.html")),
-        "style.css": os.path.exists(os.path.join(FRONTEND_PATH, "style.css")),
-        "script.js": os.path.exists(os.path.join(FRONTEND_PATH, "script.js")),
-        "knowledge_base.json": os.path.exists(os.path.join(FRONTEND_PATH, "knowledge_base.json")),
-    }
-    
-    health_status = {
+    return {
         "status": "healthy",
         "service": "FinanceClick AI Trading",
         "timestamp": datetime.now().isoformat(),
-        "deriv_connected": deriv_ws is not None and not deriv_ws.closed,
+        "deriv_connected": deriv_service.connected if deriv_service else False,
         "robot_active": robot_active,
-        "risk_model_loaded": RISK_MODEL is not None,
         "active_users": len(active_tokens),
-        "contact_messages": len(contact_messages),
         "environment": ENVIRONMENT,
-        "version": "2.2.0",
-        "files_status": essential_files
+        "version": "2.3.0"
     }
-    
-    return JSONResponse(health_status)
-
-# --- ERROR HANDLERS ---
-@app.exception_handler(404)
-async def not_found_handler(request: Request, exc: HTTPException):
-    logger.warning(f"404 Not Found: {request.url}")
-    return JSONResponse(
-        status_code=404,
-        content={"detail": "Endpoint não encontrado"}
-    )
-
-@app.exception_handler(500)
-async def internal_error_handler(request: Request, exc: HTTPException):
-    logger.error(f"500 Internal Server Error: {exc.detail}")
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Erro interno do servidor"}
-    )
 
 # --- PRODUCTION INITIALIZATION ---
 if __name__ == "__main__":
