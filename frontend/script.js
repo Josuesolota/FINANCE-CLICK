@@ -1,4 +1,4 @@
-// script.js - VERSÃO CORRIGIDA - ESTADO PERSISTENTE ENTRE PÁGINAS
+// script.js - VERSÃO FINAL CORRIGIDA - PROBLEMA OAUTH RESOLVIDO
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Variáveis Globais
     let currentUser = null;
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ✅ CORREÇÃO CRÍTICA: Sistema de estado persistente
+    // ✅ CORREÇÃO CRÍTICA: Sistema de autenticação simplificado e robusto
     function getAuthHeaders() {
         const token = localStorage.getItem('deriv_token');
         const loginid = localStorage.getItem('deriv_loginid');
@@ -63,39 +63,12 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // ✅ CORREÇÃO: Processar OAuth callback em TODAS as páginas
-    function handleOAuthCallback() {
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        console.log('🔄 Verificando callback OAuth...');
-        
-        let tokensFound = false;
-        let i = 1;
-        
-        while (urlParams.get(`acct${i}`)) {
-            const loginid = urlParams.get(`acct${i}`);
-            const token = urlParams.get(`token${i}`);
-            
-            if (loginid && token) {
-                localStorage.setItem('deriv_token', token);
-                localStorage.setItem('deriv_loginid', loginid);
-                localStorage.setItem('deriv_currency', urlParams.get(`cur${i}`) || 'USD');
-                
-                console.log('✅ Tokens salvos no localStorage:', loginid);
-                tokensFound = true;
-                
-                // Limpar URL parameters
-                if (window.location.search.includes('acct1')) {
-                    const newUrl = window.location.pathname;
-                    window.history.replaceState({}, document.title, newUrl);
-                    console.log('🧹 Parâmetros da URL limpos');
-                }
-                break;
-            }
-            i++;
-        }
-        
-        return tokensFound;
+    // ✅ CORREÇÃO: Sistema de estado simplificado
+    function saveAuthData(loginid, token, currency = 'USD') {
+        localStorage.setItem('deriv_token', token);
+        localStorage.setItem('deriv_loginid', loginid);
+        localStorage.setItem('deriv_currency', currency);
+        console.log('💾 Dados de autenticação salvos:', loginid);
     }
 
     function clearAuthData() {
@@ -106,77 +79,115 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('🧹 Dados de autenticação limpos');
     }
 
-    // ✅ CORREÇÃO: Função de inicialização robusta
+    // ✅ CORREÇÃO: Verificar se estamos no callback OAuth
+    function isOAuthCallback() {
+        return window.location.search.includes('acct1=') || 
+               window.location.search.includes('token1=');
+    }
+
+    // ✅ CORREÇÃO: Processar OAuth callback de forma robusta
+    function processOAuthCallback() {
+        console.log('🔄 Processando OAuth callback...');
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        let tokensProcessed = false;
+        let i = 1;
+
+        while (true) {
+            const loginid = urlParams.get(`acct${i}`);
+            const token = urlParams.get(`token${i}`);
+            
+            if (!loginid || !token) break;
+
+            console.log(`📥 Encontrada conta ${i}:`, loginid);
+            saveAuthData(loginid, token, urlParams.get(`cur${i}`) || 'USD');
+            tokensProcessed = true;
+            i++;
+        }
+
+        if (tokensProcessed) {
+            console.log('✅ Tokens OAuth processados com sucesso');
+            // Limpar URL parameters
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+            console.log('🧹 URL limpa:', cleanUrl);
+        } else {
+            console.log('ℹ️ Nenhum token OAuth encontrado na URL');
+        }
+
+        return tokensProcessed;
+    }
+
+    // ✅ CORREÇÃO: Inicialização otimizada
     async function initializeApp() {
         console.log('🚀 Inicializando aplicação...');
         highlightActiveLink();
         
-        // Processar OAuth callback primeiro (se houver)
-        const hasNewTokens = handleOAuthCallback();
-        
-        // Verificar autenticação
-        await checkAuthentication();
-        
-        // Se temos novos tokens do OAuth, restaurar sessão no backend
-        if (hasNewTokens) {
-            await restoreBackendSession();
+        // Processar OAuth callback se estivermos em uma
+        if (isOAuthCallback()) {
+            console.log('🎯 Detectado OAuth callback - processando...');
+            const hasTokens = processOAuthCallback();
+            if (hasTokens) {
+                // Restaurar sessão no backend imediatamente
+                await restoreBackendSession();
+            }
         }
         
+        // Verificar autenticação atual
+        await checkAuthentication();
         await loadInitialData();
         setupEventListeners();
         
         console.log('✅ Aplicação inicializada');
     }
 
-    // ✅ CORREÇÃO: Sistema de autenticação melhorado
+    // ✅ CORREÇÃO: Sistema de autenticação otimizado
     async function checkAuthentication() {
         const token = localStorage.getItem('deriv_token');
         const loginid = localStorage.getItem('deriv_loginid');
 
         console.log('🔐 Verificando autenticação...', { 
-            token: token ? 'PRESENTE' : 'AUSENTE', 
-            loginid: loginid || 'AUSENTE' 
+            hasToken: !!token, 
+            hasLoginId: !!loginid 
         });
 
         if (!token || !loginid) {
-            console.log('❌ Sem tokens no localStorage');
+            console.log('❌ Dados de autenticação incompletos no localStorage');
             updateUINotAuthenticated();
             return;
         }
 
         try {
-            console.log('🔄 Consultando /api/me...');
             const response = await fetch('/api/me', {
                 headers: getAuthHeaders()
             });
             
-            console.log('📥 Status da resposta:', response.status);
-            
             if (response.ok) {
                 const userData = await response.json();
-                console.log('✅ Usuário autenticado:', userData.loginid);
+                console.log('✅ Autenticação válida:', userData.loginid);
                 currentUser = userData;
                 updateUIAuthenticated(userData);
             } else {
-                console.log('❌ Falha na autenticação, status:', response.status);
+                console.log('❌ Autenticação inválida, status:', response.status);
                 
                 // Tentar restaurar sessão se for erro 401
                 if (response.status === 401) {
-                    console.log('🔄 Tentando restaurar sessão...');
+                    console.log('🔄 Tentando restaurar sessão no backend...');
                     const restored = await restoreBackendSession();
                     if (restored) {
-                        // Tentar novamente após restaurar
+                        // Tentar autenticação novamente após restaurar
                         await checkAuthentication();
                         return;
                     }
                 }
                 
+                // Se não conseguimos restaurar, limpar dados inválidos
                 clearAuthData();
                 updateUINotAuthenticated();
             }
         } catch (error) {
-            console.error('❌ Erro ao verificar autenticação:', error);
-            // Não limpar dados em caso de erro de rede - manter estado atual
+            console.error('❌ Erro de rede ao verificar autenticação:', error);
+            // Em caso de erro de rede, manter UI atual
             updateUINotAuthenticated();
         }
     }
@@ -184,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ✅ CORREÇÃO: Restaurar sessão no backend
     async function restoreBackendSession() {
         try {
-            console.log('🔄 Restaurando sessão no backend...');
             const response = await fetch('/api/auth/refresh', {
                 method: 'POST',
                 headers: getAuthHeaders()
@@ -203,16 +213,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ✅ CORREÇÃO: Atualização de UI mais robusta
+    // ✅ CORREÇÃO: Atualização de UI mais confiável
     function updateUIAuthenticated(userData) {
         console.log('🎨 Atualizando UI para usuário autenticado:', userData.loginid);
         
+        // Atualizar botão login/logout
         if (loginLogoutBtn) {
             loginLogoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
             loginLogoutBtn.onclick = handleLogout;
-            console.log('✅ Botão logout configurado');
         }
 
+        // Atualizar informações do usuário
         if (userInfoElement) {
             userInfoElement.innerHTML = `
                 <div class="user-welcome">
@@ -220,40 +231,52 @@ document.addEventListener('DOMContentLoaded', () => {
                     <small>Conta: ${userData.loginid}</small>
                 </div>
             `;
-            console.log('✅ Informações do usuário exibidas');
-        }
-
-        // Atualizar saldo se estiver no dashboard
-        if (document.getElementById('accountBalance')) {
-            updateAccountBalance();
+            userInfoElement.style.display = 'block';
         }
 
         // Mostrar seções protegidas
         document.querySelectorAll('.protected-section').forEach(section => {
             section.style.display = 'block';
         });
+
+        // Esconder seções de não autenticado
+        document.querySelectorAll('.unauthenticated-section').forEach(section => {
+            section.style.display = 'none';
+        });
+
+        console.log('✅ UI atualizada para autenticado');
     }
 
     function updateUINotAuthenticated() {
         console.log('🎨 Atualizando UI para não autenticado');
         
+        // Atualizar botão login/logout
         if (loginLogoutBtn) {
             loginLogoutBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
             loginLogoutBtn.onclick = handleLogin;
         }
 
+        // Limpar informações do usuário
         if (userInfoElement) {
             userInfoElement.innerHTML = '';
+            userInfoElement.style.display = 'none';
         }
 
         // Esconder seções protegidas
         document.querySelectorAll('.protected-section').forEach(section => {
             section.style.display = 'none';
         });
+
+        // Mostrar seções de não autenticado
+        document.querySelectorAll('.unauthenticated-section').forEach(section => {
+            section.style.display = 'block';
+        });
+
+        console.log('✅ UI atualizada para não autenticado');
     }
 
     function handleLogin() {
-        console.log('🔐 Redirecionando para login OAuth...');
+        console.log('🔐 Redirecionando para OAuth...');
         window.location.href = '/auth/login';
     }
 
@@ -267,24 +290,28 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (response.ok) {
                 console.log('✅ Logout bem-sucedido no backend');
+            } else {
+                console.log('⚠️ Logout no backend falhou, mas continuando...');
             }
         } catch (error) {
             console.error('⚠️ Erro no logout do backend:', error);
         } finally {
-            // SEMPRE limpar dados locais, mesmo se o backend falhar
+            // SEMPRE limpar dados locais
             clearAuthData();
             updateUINotAuthenticated();
             showNotification('Logout realizado com sucesso!', 'success');
             
-            // Redirecionar se estiver em página protegida
-            if (window.location.pathname.includes('dashboard') || 
-                window.location.pathname.includes('history')) {
-                setTimeout(() => window.location.href = '/', 1000);
+            // Redirecionar para página inicial se estiver em página protegida
+            const currentPage = window.location.pathname;
+            if (currentPage.includes('dashboard') || currentPage.includes('history')) {
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1500);
             }
         }
     }
 
-    // 5. Sistema de Robô AI (mantido igual, mas com headers)
+    // 5. Sistema de Robô AI
     function setupRobotAIControls() {
         const toggleRobotBtn = document.getElementById('toggleRobotBtn');
         const aiStatus = document.getElementById('aiStatus');
@@ -352,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isActive) {
             toggleRobotBtn.textContent = 'DESLIGAR ROBÔ';
-            toggleRobotBtn.className = 'btn btn-secondary';
+            toggleRobotBtn.className = 'btn btn-danger';
             aiStatus.innerHTML = '<i class="fas fa-circle pulse"></i> Ligado';
             aiStatus.className = 'status active';
         } else {
@@ -363,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 6. Sistema de Trading (mantido igual, mas com headers)
+    // 6. Sistema de Trading
     function setupAccumulatorTrading() {
         const buyButton = document.getElementById('buyAccumulatorBtn');
         if (!buyButton) return;
@@ -435,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 7. Sistema de Saldo (com headers)
+    // 7. Sistema de Saldo
     async function updateAccountBalance() {
         const balanceElement = document.getElementById('accountBalance');
         if (!balanceElement) return;
@@ -458,8 +485,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 8. Sistema de Notificações (mantido igual)
+    // 8. Sistema de Notificações
     function showNotification(message, type = 'info') {
+        // Remover notificações existentes
+        document.querySelectorAll('.notification').forEach(n => n.remove());
+
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.innerHTML = `
@@ -480,6 +510,8 @@ document.addEventListener('DOMContentLoaded', () => {
             align-items: center;
             min-width: 300px;
             animation: slideIn 0.3s ease;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
         `;
 
         const colors = {
@@ -499,7 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000);
     }
 
-    // 9. Sistema do Chatbot (mantido igual)
+    // 9. Sistema do Chatbot
     function setupChatbot() {
         const chatInput = document.getElementById('chatInput');
         const sendChatBtn = document.getElementById('sendChatBtn');
@@ -557,7 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <h4>Detalhes do Contrato</h4>
                 <div class="contract-info">
                     <p><strong>ID:</strong> ${contract.contract_id || 'N/A'}</p>
-                    <p><strong>Status:</strong> ${contract.status || 'Aberto'}</p>
+                    <p><strong>Status:</strong> <span class="status-${contract.status || 'open'}">${contract.status || 'Aberto'}</span></p>
                     <p><strong>Resultado:</strong> $${contract.result || '0.00'}</p>
                 </div>
             </div>
