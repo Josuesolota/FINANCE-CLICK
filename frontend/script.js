@@ -1,4 +1,4 @@
-// script.js - VERSÃO CORRIGIDA COM AUTENTICAÇÃO PERSISTENTE
+// script.js - VERSÃO CORRIGIDA - ESTADO PERSISTENTE ENTRE PÁGINAS
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Variáveis Globais
     let currentUser = null;
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ✅ CORREÇÃO 1: Função para obter headers de autenticação
+    // ✅ CORREÇÃO CRÍTICA: Sistema de estado persistente
     function getAuthHeaders() {
         const token = localStorage.getItem('deriv_token');
         const loginid = localStorage.getItem('deriv_loginid');
@@ -63,35 +63,41 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // ✅ CORREÇÃO 2: Processar callback OAuth e salvar tokens
+    // ✅ CORREÇÃO: Processar OAuth callback em TODAS as páginas
     function handleOAuthCallback() {
         const urlParams = new URLSearchParams(window.location.search);
         
-        // Verificar se temos parâmetros OAuth na URL
+        console.log('🔄 Verificando callback OAuth...');
+        
+        let tokensFound = false;
         let i = 1;
+        
         while (urlParams.get(`acct${i}`)) {
             const loginid = urlParams.get(`acct${i}`);
             const token = urlParams.get(`token${i}`);
             
             if (loginid && token) {
-                // Salvar tokens no localStorage
                 localStorage.setItem('deriv_token', token);
                 localStorage.setItem('deriv_loginid', loginid);
                 localStorage.setItem('deriv_currency', urlParams.get(`cur${i}`) || 'USD');
                 
-                console.log('✅ Tokens OAuth salvos no localStorage:', loginid);
+                console.log('✅ Tokens salvos no localStorage:', loginid);
+                tokensFound = true;
                 
-                // Limpar URL parameters para evitar reutilização
+                // Limpar URL parameters
                 if (window.location.search.includes('acct1')) {
-                    window.history.replaceState({}, document.title, window.location.pathname);
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                    console.log('🧹 Parâmetros da URL limpos');
                 }
                 break;
             }
             i++;
         }
+        
+        return tokensFound;
     }
 
-    // ✅ CORREÇÃO 3: Limpar dados de autenticação
     function clearAuthData() {
         localStorage.removeItem('deriv_token');
         localStorage.removeItem('deriv_loginid');
@@ -100,9 +106,85 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('🧹 Dados de autenticação limpos');
     }
 
-    // ✅ CORREÇÃO 4: Restaurar sessão no backend
+    // ✅ CORREÇÃO: Função de inicialização robusta
+    async function initializeApp() {
+        console.log('🚀 Inicializando aplicação...');
+        highlightActiveLink();
+        
+        // Processar OAuth callback primeiro (se houver)
+        const hasNewTokens = handleOAuthCallback();
+        
+        // Verificar autenticação
+        await checkAuthentication();
+        
+        // Se temos novos tokens do OAuth, restaurar sessão no backend
+        if (hasNewTokens) {
+            await restoreBackendSession();
+        }
+        
+        await loadInitialData();
+        setupEventListeners();
+        
+        console.log('✅ Aplicação inicializada');
+    }
+
+    // ✅ CORREÇÃO: Sistema de autenticação melhorado
+    async function checkAuthentication() {
+        const token = localStorage.getItem('deriv_token');
+        const loginid = localStorage.getItem('deriv_loginid');
+
+        console.log('🔐 Verificando autenticação...', { 
+            token: token ? 'PRESENTE' : 'AUSENTE', 
+            loginid: loginid || 'AUSENTE' 
+        });
+
+        if (!token || !loginid) {
+            console.log('❌ Sem tokens no localStorage');
+            updateUINotAuthenticated();
+            return;
+        }
+
+        try {
+            console.log('🔄 Consultando /api/me...');
+            const response = await fetch('/api/me', {
+                headers: getAuthHeaders()
+            });
+            
+            console.log('📥 Status da resposta:', response.status);
+            
+            if (response.ok) {
+                const userData = await response.json();
+                console.log('✅ Usuário autenticado:', userData.loginid);
+                currentUser = userData;
+                updateUIAuthenticated(userData);
+            } else {
+                console.log('❌ Falha na autenticação, status:', response.status);
+                
+                // Tentar restaurar sessão se for erro 401
+                if (response.status === 401) {
+                    console.log('🔄 Tentando restaurar sessão...');
+                    const restored = await restoreBackendSession();
+                    if (restored) {
+                        // Tentar novamente após restaurar
+                        await checkAuthentication();
+                        return;
+                    }
+                }
+                
+                clearAuthData();
+                updateUINotAuthenticated();
+            }
+        } catch (error) {
+            console.error('❌ Erro ao verificar autenticação:', error);
+            // Não limpar dados em caso de erro de rede - manter estado atual
+            updateUINotAuthenticated();
+        }
+    }
+
+    // ✅ CORREÇÃO: Restaurar sessão no backend
     async function restoreBackendSession() {
         try {
+            console.log('🔄 Restaurando sessão no backend...');
             const response = await fetch('/api/auth/refresh', {
                 method: 'POST',
                 headers: getAuthHeaders()
@@ -111,63 +193,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 console.log('✅ Sessão restaurada no backend');
                 return true;
-            }
-        } catch (error) {
-            console.error('❌ Erro ao restaurar sessão no backend:', error);
-        }
-        return false;
-    }
-
-    // 4. Sistema de Autenticação CORRIGIDO
-    async function initializeApp() {
-        highlightActiveLink();
-        handleOAuthCallback(); // ✅ Processar callback OAuth primeiro
-        await checkAuthentication();
-        await loadInitialData();
-        setupEventListeners();
-    }
-
-    async function checkAuthentication() {
-        // Verificar se temos tokens no localStorage
-        const token = localStorage.getItem('deriv_token');
-        const loginid = localStorage.getItem('deriv_loginid');
-
-        if (!token || !loginid) {
-            console.log('❌ Nenhum token encontrado no localStorage');
-            updateUINotAuthenticated();
-            return;
-        }
-
-        try {
-            // ✅ CORREÇÃO: Usar headers de autenticação
-            const response = await fetch('/api/me', {
-                headers: getAuthHeaders()
-            });
-            
-            if (response.ok) {
-                const userData = await response.json();
-                currentUser = userData;
-                updateUIAuthenticated(userData);
-                
-                // ✅ Restaurar sessão no backend
-                await restoreBackendSession();
-                
             } else {
-                console.log('❌ Autenticação falhou, limpando localStorage');
-                clearAuthData();
-                updateUINotAuthenticated();
+                console.log('❌ Falha ao restaurar sessão:', response.status);
+                return false;
             }
         } catch (error) {
-            console.error('Erro ao verificar autenticação:', error);
-            clearAuthData();
-            updateUINotAuthenticated();
+            console.error('❌ Erro ao restaurar sessão:', error);
+            return false;
         }
     }
 
+    // ✅ CORREÇÃO: Atualização de UI mais robusta
     function updateUIAuthenticated(userData) {
+        console.log('🎨 Atualizando UI para usuário autenticado:', userData.loginid);
+        
         if (loginLogoutBtn) {
             loginLogoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
             loginLogoutBtn.onclick = handleLogout;
+            console.log('✅ Botão logout configurado');
         }
 
         if (userInfoElement) {
@@ -177,16 +220,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     <small>Conta: ${userData.loginid}</small>
                 </div>
             `;
+            console.log('✅ Informações do usuário exibidas');
         }
 
+        // Atualizar saldo se estiver no dashboard
         if (document.getElementById('accountBalance')) {
             updateAccountBalance();
         }
 
-        console.log('✅ UI atualizada para usuário autenticado:', userData.loginid);
+        // Mostrar seções protegidas
+        document.querySelectorAll('.protected-section').forEach(section => {
+            section.style.display = 'block';
+        });
     }
 
     function updateUINotAuthenticated() {
+        console.log('🎨 Atualizando UI para não autenticado');
+        
         if (loginLogoutBtn) {
             loginLogoutBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
             loginLogoutBtn.onclick = handleLogin;
@@ -196,7 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
             userInfoElement.innerHTML = '';
         }
 
-        console.log('🔐 UI atualizada para usuário não autenticado');
+        // Esconder seções protegidas
+        document.querySelectorAll('.protected-section').forEach(section => {
+            section.style.display = 'none';
+        });
     }
 
     function handleLogin() {
@@ -206,35 +259,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleLogout() {
         try {
-            // ✅ CORREÇÃO: Usar headers de autenticação no logout
+            console.log('👋 Executando logout...');
             const response = await fetch('/auth/logout', { 
                 method: 'POST',
                 headers: getAuthHeaders()
             });
             
             if (response.ok) {
-                clearAuthData();
-                updateUINotAuthenticated();
-                showNotification('Logout realizado com sucesso!', 'success');
-                
-                if (window.location.pathname.includes('dashboard')) {
-                    setTimeout(() => window.location.href = '/', 1000);
-                }
-            } else {
-                // Mesmo se o logout falhar no backend, limpar frontend
-                clearAuthData();
-                updateUINotAuthenticated();
-                showNotification('Sessão encerrada', 'info');
+                console.log('✅ Logout bem-sucedido no backend');
             }
         } catch (error) {
-            console.error('Erro no logout:', error);
+            console.error('⚠️ Erro no logout do backend:', error);
+        } finally {
+            // SEMPRE limpar dados locais, mesmo se o backend falhar
             clearAuthData();
             updateUINotAuthenticated();
-            showNotification('Sessão encerrada', 'info');
+            showNotification('Logout realizado com sucesso!', 'success');
+            
+            // Redirecionar se estiver em página protegida
+            if (window.location.pathname.includes('dashboard') || 
+                window.location.pathname.includes('history')) {
+                setTimeout(() => window.location.href = '/', 1000);
+            }
         }
     }
 
-    // 5. Sistema de Robô AI CORRIGIDO
+    // 5. Sistema de Robô AI (mantido igual, mas com headers)
     function setupRobotAIControls() {
         const toggleRobotBtn = document.getElementById('toggleRobotBtn');
         const aiStatus = document.getElementById('aiStatus');
@@ -256,7 +306,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                // ✅ CORREÇÃO: Usar headers de autenticação
                 const response = await fetch('/api/robot/toggle', {
                     method: 'POST',
                     headers: getAuthHeaders(),
@@ -271,8 +320,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         isRobotActive ? 'Robô AI ativado!' : 'Robô AI desativado',
                         isRobotActive ? 'success' : 'info'
                     );
-                } else {
-                    showNotification('Erro ao controlar robô', 'error');
                 }
             } catch (error) {
                 console.error('Erro ao alternar robô:', error);
@@ -283,7 +330,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function checkRobotStatus() {
         try {
-            // ✅ CORREÇÃO: Usar headers de autenticação
             const response = await fetch('/api/robot/status', {
                 headers: getAuthHeaders()
             });
@@ -317,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 6. Sistema de Trading CORRIGIDO
+    // 6. Sistema de Trading (mantido igual, mas com headers)
     function setupAccumulatorTrading() {
         const buyButton = document.getElementById('buyAccumulatorBtn');
         if (!buyButton) return;
@@ -340,7 +386,6 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 showNotification('Executando compra...', 'info');
                 
-                // ✅ CORREÇÃO: Usar headers de autenticação
                 const response = await fetch('/api/accumulators/buy', {
                     method: 'POST',
                     headers: getAuthHeaders(),
@@ -350,19 +395,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok) {
                     const result = await response.json();
                     showNotification('Compra executada com sucesso!', 'success');
-                    
                     await updateAccountBalance();
                     
                     if (result.buy) {
                         displayContractDetails(result.buy);
                     }
                 } else {
-                    const errorData = await response.json();
-                    showNotification(`Erro na compra: ${errorData.detail || 'Erro desconhecido'}`, 'error');
+                    showNotification('Erro na compra', 'error');
                 }
             } catch (error) {
                 console.error('Erro na compra:', error);
-                showNotification('Erro de comunicação com o servidor', 'error');
+                showNotification('Erro de comunicação', 'error');
             }
         });
     }
@@ -372,7 +415,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!symbolSelect) return;
 
         try {
-            // ✅ CORREÇÃO: Usar headers de autenticação
             const response = await fetch('/api/symbols/accumulators', {
                 headers: getAuthHeaders()
             });
@@ -393,13 +435,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 7. Sistema de Saldo CORRIGIDO
+    // 7. Sistema de Saldo (com headers)
     async function updateAccountBalance() {
         const balanceElement = document.getElementById('accountBalance');
         if (!balanceElement) return;
 
         try {
-            // ✅ CORREÇÃO: Usar headers de autenticação
             const response = await fetch('/api/balance', {
                 headers: getAuthHeaders()
             });
@@ -410,8 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     balanceElement.textContent = 
                         `$${data.balance.balance.toFixed(2)} ${data.balance.currency || 'USD'}`;
                 }
-            } else {
-                balanceElement.textContent = 'Erro ao carregar';
             }
         } catch (error) {
             console.error('Erro ao atualizar saldo:', error);
@@ -419,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 8. Sistema de Notificações
+    // 8. Sistema de Notificações (mantido igual)
     function showNotification(message, type = 'info') {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
@@ -460,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000);
     }
 
-    // 9. Sistema do Chatbot
+    // 9. Sistema do Chatbot (mantido igual)
     function setupChatbot() {
         const chatInput = document.getElementById('chatInput');
         const sendChatBtn = document.getElementById('sendChatBtn');
@@ -560,5 +599,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Expor funções globais
     window.showNotification = showNotification;
-    window.getAuthHeaders = getAuthHeaders; // ✅ Expor para debug
 });

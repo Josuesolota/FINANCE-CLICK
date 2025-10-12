@@ -535,6 +535,7 @@ async def logout_user(request: Request):
 
 @app.get("/api/me")
 async def get_current_user_info(user: dict = Depends(get_current_user)):
+    print(f"Fornecido info do usuário: {user['loginid']}")
     return {
         "authenticated": True,
         "loginid": user['loginid'],
