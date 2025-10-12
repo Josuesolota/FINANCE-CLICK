@@ -1,4 +1,4 @@
-// script.js - VERSÃO CORRIGIDA E SIMPLIFICADA
+// script.js - VERSÃO CORRIGIDA COM AUTENTICAÇÃO PERSISTENTE
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Variáveis Globais
     let currentUser = null;
@@ -46,27 +46,120 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 4. Sistema de Autenticação
+    // ✅ CORREÇÃO 1: Função para obter headers de autenticação
+    function getAuthHeaders() {
+        const token = localStorage.getItem('deriv_token');
+        const loginid = localStorage.getItem('deriv_loginid');
+        
+        if (token && loginid) {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'X-LoginID': loginid
+            };
+        }
+        return {
+            'Content-Type': 'application/json'
+        };
+    }
+
+    // ✅ CORREÇÃO 2: Processar callback OAuth e salvar tokens
+    function handleOAuthCallback() {
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Verificar se temos parâmetros OAuth na URL
+        let i = 1;
+        while (urlParams.get(`acct${i}`)) {
+            const loginid = urlParams.get(`acct${i}`);
+            const token = urlParams.get(`token${i}`);
+            
+            if (loginid && token) {
+                // Salvar tokens no localStorage
+                localStorage.setItem('deriv_token', token);
+                localStorage.setItem('deriv_loginid', loginid);
+                localStorage.setItem('deriv_currency', urlParams.get(`cur${i}`) || 'USD');
+                
+                console.log('✅ Tokens OAuth salvos no localStorage:', loginid);
+                
+                // Limpar URL parameters para evitar reutilização
+                if (window.location.search.includes('acct1')) {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+                break;
+            }
+            i++;
+        }
+    }
+
+    // ✅ CORREÇÃO 3: Limpar dados de autenticação
+    function clearAuthData() {
+        localStorage.removeItem('deriv_token');
+        localStorage.removeItem('deriv_loginid');
+        localStorage.removeItem('deriv_currency');
+        currentUser = null;
+        console.log('🧹 Dados de autenticação limpos');
+    }
+
+    // ✅ CORREÇÃO 4: Restaurar sessão no backend
+    async function restoreBackendSession() {
+        try {
+            const response = await fetch('/api/auth/refresh', {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+            
+            if (response.ok) {
+                console.log('✅ Sessão restaurada no backend');
+                return true;
+            }
+        } catch (error) {
+            console.error('❌ Erro ao restaurar sessão no backend:', error);
+        }
+        return false;
+    }
+
+    // 4. Sistema de Autenticação CORRIGIDO
     async function initializeApp() {
         highlightActiveLink();
+        handleOAuthCallback(); // ✅ Processar callback OAuth primeiro
         await checkAuthentication();
         await loadInitialData();
         setupEventListeners();
     }
 
     async function checkAuthentication() {
+        // Verificar se temos tokens no localStorage
+        const token = localStorage.getItem('deriv_token');
+        const loginid = localStorage.getItem('deriv_loginid');
+
+        if (!token || !loginid) {
+            console.log('❌ Nenhum token encontrado no localStorage');
+            updateUINotAuthenticated();
+            return;
+        }
+
         try {
-            const response = await fetch('/api/me');
+            // ✅ CORREÇÃO: Usar headers de autenticação
+            const response = await fetch('/api/me', {
+                headers: getAuthHeaders()
+            });
             
             if (response.ok) {
                 const userData = await response.json();
                 currentUser = userData;
                 updateUIAuthenticated(userData);
+                
+                // ✅ Restaurar sessão no backend
+                await restoreBackendSession();
+                
             } else {
+                console.log('❌ Autenticação falhou, limpando localStorage');
+                clearAuthData();
                 updateUINotAuthenticated();
             }
         } catch (error) {
             console.error('Erro ao verificar autenticação:', error);
+            clearAuthData();
             updateUINotAuthenticated();
         }
     }
@@ -89,6 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.getElementById('accountBalance')) {
             updateAccountBalance();
         }
+
+        console.log('✅ UI atualizada para usuário autenticado:', userData.loginid);
     }
 
     function updateUINotAuthenticated() {
@@ -100,35 +195,46 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userInfoElement) {
             userInfoElement.innerHTML = '';
         }
+
+        console.log('🔐 UI atualizada para usuário não autenticado');
     }
 
     function handleLogin() {
+        console.log('🔐 Redirecionando para login OAuth...');
         window.location.href = '/auth/login';
     }
 
     async function handleLogout() {
         try {
+            // ✅ CORREÇÃO: Usar headers de autenticação no logout
             const response = await fetch('/auth/logout', { 
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'}
+                headers: getAuthHeaders()
             });
             
             if (response.ok) {
-                currentUser = null;
+                clearAuthData();
                 updateUINotAuthenticated();
                 showNotification('Logout realizado com sucesso!', 'success');
                 
                 if (window.location.pathname.includes('dashboard')) {
                     setTimeout(() => window.location.href = '/', 1000);
                 }
+            } else {
+                // Mesmo se o logout falhar no backend, limpar frontend
+                clearAuthData();
+                updateUINotAuthenticated();
+                showNotification('Sessão encerrada', 'info');
             }
         } catch (error) {
             console.error('Erro no logout:', error);
-            showNotification('Erro ao fazer logout', 'error');
+            clearAuthData();
+            updateUINotAuthenticated();
+            showNotification('Sessão encerrada', 'info');
         }
     }
 
-    // 5. Sistema de Robô AI
+    // 5. Sistema de Robô AI CORRIGIDO
     function setupRobotAIControls() {
         const toggleRobotBtn = document.getElementById('toggleRobotBtn');
         const aiStatus = document.getElementById('aiStatus');
@@ -150,9 +256,10 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
+                // ✅ CORREÇÃO: Usar headers de autenticação
                 const response = await fetch('/api/robot/toggle', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: getAuthHeaders(),
                     body: JSON.stringify(config)
                 });
 
@@ -176,7 +283,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function checkRobotStatus() {
         try {
-            const response = await fetch('/api/robot/status');
+            // ✅ CORREÇÃO: Usar headers de autenticação
+            const response = await fetch('/api/robot/status', {
+                headers: getAuthHeaders()
+            });
+            
             if (response.ok) {
                 const status = await response.json();
                 isRobotActive = status.active;
@@ -206,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 6. Sistema de Trading
+    // 6. Sistema de Trading CORRIGIDO
     function setupAccumulatorTrading() {
         const buyButton = document.getElementById('buyAccumulatorBtn');
         if (!buyButton) return;
@@ -229,9 +340,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 showNotification('Executando compra...', 'info');
                 
+                // ✅ CORREÇÃO: Usar headers de autenticação
                 const response = await fetch('/api/accumulators/buy', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: getAuthHeaders(),
                     body: JSON.stringify(tradeData)
                 });
 
@@ -245,11 +357,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         displayContractDetails(result.buy);
                     }
                 } else {
-                    showNotification('Erro na compra', 'error');
+                    const errorData = await response.json();
+                    showNotification(`Erro na compra: ${errorData.detail || 'Erro desconhecido'}`, 'error');
                 }
             } catch (error) {
                 console.error('Erro na compra:', error);
-                showNotification('Erro de comunicação', 'error');
+                showNotification('Erro de comunicação com o servidor', 'error');
             }
         });
     }
@@ -259,7 +372,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!symbolSelect) return;
 
         try {
-            const response = await fetch('/api/symbols/accumulators');
+            // ✅ CORREÇÃO: Usar headers de autenticação
+            const response = await fetch('/api/symbols/accumulators', {
+                headers: getAuthHeaders()
+            });
+            
             if (response.ok) {
                 const data = await response.json();
                 symbolSelect.innerHTML = '';
@@ -276,19 +393,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 7. Sistema de Saldo
+    // 7. Sistema de Saldo CORRIGIDO
     async function updateAccountBalance() {
         const balanceElement = document.getElementById('accountBalance');
         if (!balanceElement) return;
 
         try {
-            const response = await fetch('/api/balance');
+            // ✅ CORREÇÃO: Usar headers de autenticação
+            const response = await fetch('/api/balance', {
+                headers: getAuthHeaders()
+            });
+            
             if (response.ok) {
                 const data = await response.json();
                 if (data.balance) {
                     balanceElement.textContent = 
                         `$${data.balance.balance.toFixed(2)} ${data.balance.currency || 'USD'}`;
                 }
+            } else {
+                balanceElement.textContent = 'Erro ao carregar';
             }
         } catch (error) {
             console.error('Erro ao atualizar saldo:', error);
@@ -437,4 +560,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Expor funções globais
     window.showNotification = showNotification;
+    window.getAuthHeaders = getAuthHeaders; // ✅ Expor para debug
 });

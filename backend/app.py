@@ -1,5 +1,5 @@
 # app.py - FinanceClick Backend with Accumulator Options AI Robot
-# VERSÃO FINAL CORRIGIDA - INTEGRAÇÃO REAL COM DERIV API
+# VERSÃO FINAL CORRIGIDA - SISTEMA DE AUTENTICAÇÃO PERSISTENTE
 import os
 import json
 import asyncio
@@ -56,7 +56,7 @@ load_dotenv()
 # --- CONFIGURAÇÃO RENDER ---
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 DERIV_APP_ID = os.getenv("DERIV_APP_ID", "1089")
-DERIV_REDIRECT_URL = os.getenv("DERIV_REDIRECT_URL", "https://financs-click.onrender.com/auth/callback")
+DERIV_REDIRECT_URL = os.getenv("DERIV_REDIRECT_URL", "https://finance-click.onrender.com/auth/callback")
 DERIV_API_URL = os.getenv("DERIV_API_URL", "wss://ws.deriv.com/websockets/v3")
 PORT = int(os.getenv("PORT", "10000"))
 
@@ -249,7 +249,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="FinanceClick AI Trading Platform",
     description="Backend with Accumulator Options AI Robot",
-    version="2.3.0",
+    version="2.4.0",  # Atualizado para nova versão
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc"
@@ -327,26 +327,51 @@ class ContactRequest(BaseModel):
     subject: str
     message: str
 
-# --- DEPENDÊNCIAS E UTILS ---
+# ✅ CORREÇÃO CRÍTICA: Função get_current_user corrigida
 def get_current_user(request: Request):
-    if not active_tokens:
-        raise HTTPException(status_code=401, detail="Não autenticado")
+    # Obter token do header Authorization
+    auth_header = request.headers.get("Authorization")
+    loginid_header = request.headers.get("X-LoginID")
     
-    loginid = next(iter(active_tokens.keys()))
+    logger.debug(f"🔐 Validando autenticação - LoginID: {loginid_header}, Auth Header: {auth_header is not None}")
     
-    session_key = f"session_{loginid}"
+    if not auth_header or not auth_header.startswith("Bearer "):
+        logger.warning("❌ Token não fornecido ou formato inválido")
+        raise HTTPException(status_code=401, detail="Token não fornecido")
+    
+    token = auth_header[7:]  # Remove "Bearer "
+    
+    # Validar token específico do usuário
+    if not loginid_header:
+        logger.warning("❌ LoginID não fornecido")
+        raise HTTPException(status_code=401, detail="LoginID não fornecido")
+    
+    if loginid_header not in active_tokens:
+        logger.warning(f"❌ Usuário não autenticado no backend: {loginid_header}")
+        raise HTTPException(status_code=401, detail="Usuário não autenticado")
+    
+    if active_tokens.get(loginid_header) != token:
+        logger.warning(f"❌ Token inválido para usuário: {loginid_header}")
+        raise HTTPException(status_code=401, detail="Token inválido")
+    
+    # Atualizar atividade da sessão
+    session_key = f"session_{loginid_header}"
     if session_key in user_sessions:
-        session_data = user_sessions[session_key]
-        if datetime.now().timestamp() - session_data['last_activity'] > SESSION_TIMEOUT:
-            del active_tokens[loginid]
-            del user_sessions[session_key]
-            raise HTTPException(status_code=401, detail="Sessão expirada")
-        
         user_sessions[session_key]['last_activity'] = datetime.now().timestamp()
+    else:
+        # Recriar sessão se não existir (após restart do Render)
+        user_sessions[session_key] = {
+            'loginid': loginid_header,
+            'created_at': datetime.now().timestamp(),
+            'last_activity': datetime.now().timestamp()
+        }
+        logger.info(f"✅ Sessão recriada para: {loginid_header}")
+    
+    logger.debug(f"✅ Autenticação válida para: {loginid_header}")
     
     return {
-        "loginid": loginid,
-        "token": active_tokens[loginid],
+        "loginid": loginid_header,
+        "token": token,
         "authenticated": True
     }
 
@@ -414,6 +439,7 @@ async def handle_oauth_callback(request: Request):
                 }
                 accounts.append(account_info)
                 
+                # ✅ CORREÇÃO: Armazenar token e sessão
                 active_tokens[loginid] = token
                 session_key = f"session_{loginid}"
                 user_sessions[session_key] = {
@@ -421,6 +447,8 @@ async def handle_oauth_callback(request: Request):
                     'created_at': datetime.now().timestamp(),
                     'last_activity': datetime.now().timestamp()
                 }
+                
+                logger.info(f"✅ Usuário autenticado: {loginid}")
             i += 1
         
         if not accounts:
@@ -434,20 +462,75 @@ async def handle_oauth_callback(request: Request):
         logger.error(f"❌ Erro no callback OAuth: {e}")
         return RedirectResponse(url="/", status_code=302)
 
+# ✅ NOVO ENDPOINT: Restaurar sessão a partir do localStorage
+@app.post("/api/auth/refresh")
+async def refresh_session(request: Request):
+    """Restaura sessão a partir do localStorage do frontend"""
+    try:
+        auth_header = request.headers.get("Authorization")
+        loginid_header = request.headers.get("X-LoginID")
+        
+        logger.info(f"🔄 Tentativa de restaurar sessão para: {loginid_header}")
+        
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token não fornecido")
+        
+        token = auth_header[7:]
+        
+        # Restaurar sessão no backend
+        if loginid_header and token:
+            active_tokens[loginid_header] = token
+            session_key = f"session_{loginid_header}"
+            user_sessions[session_key] = {
+                'loginid': loginid_header,
+                'created_at': datetime.now().timestamp(),
+                'last_activity': datetime.now().timestamp()
+            }
+            
+            logger.info(f"✅ Sessão restaurada para: {loginid_header}")
+            return {
+                "status": "success",
+                "message": "Sessão restaurada",
+                "loginid": loginid_header
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Dados de autenticação incompletos")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erro ao restaurar sessão: {e}")
+        raise HTTPException(status_code=500, detail="Falha ao restaurar sessão")
+
 @app.post("/auth/logout")
 async def logout_user(request: Request):
     try:
-        user = get_current_user(request)
-        loginid = user['loginid']
+        # ✅ CORREÇÃO: Usar a mesma lógica de autenticação por headers
+        auth_header = request.headers.get("Authorization")
+        loginid_header = request.headers.get("X-LoginID")
         
-        if loginid in active_tokens:
-            del active_tokens[loginid]
-        session_key = f"session_{loginid}"
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token não fornecido")
+        
+        token = auth_header[7:]
+        
+        if not loginid_header or loginid_header not in active_tokens:
+            raise HTTPException(status_code=401, detail="Usuário não autenticado")
+        
+        # Remover sessão
+        if loginid_header in active_tokens:
+            del active_tokens[loginid_header]
+        session_key = f"session_{loginid_header}"
         if session_key in user_sessions:
             del user_sessions[session_key]
             
+        logger.info(f"👋 Logout realizado para: {loginid_header}")
         return {"status": "success", "message": "Logout realizado"}
+        
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Erro no logout: {e}")
         raise HTTPException(status_code=500, detail=f"Erro no logout: {str(e)}")
 
 @app.get("/api/me")
@@ -650,8 +733,9 @@ async def health_check():
         "deriv_connected": deriv_service.connected if deriv_service else False,
         "robot_active": robot_active,
         "active_users": len(active_tokens),
+        "user_sessions": len(user_sessions),
         "environment": ENVIRONMENT,
-        "version": "2.3.0"
+        "version": "2.4.0"
     }
 
 # --- PRODUCTION INITIALIZATION ---
