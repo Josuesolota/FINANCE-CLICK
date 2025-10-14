@@ -585,6 +585,7 @@ async def get_accumulator_symbols():
     ]
     return {"accumulator_symbols": accumulator_symbols}
 
+# ✅ CORREÇÃO: Melhorar resposta da compra para frontend definitivo
 @app.post("/api/accumulators/buy")
 async def buy_accumulator_contract(
     buy_request: AccumulatorBuyRequest, 
@@ -605,12 +606,13 @@ async def buy_accumulator_contract(
             if real_buy:
                 return {"buy": real_buy}
         
-        # Fallback para compra simulada
+        # Fallback para compra simulada - ✅ MELHORADO para frontend definitivo
         import random
         contract_id = f"ACCU_{int(datetime.now().timestamp())}_{user['loginid']}"
         is_success = random.random() > 0.3
         profit_loss = buy_request.amount * buy_request.growth_rate * random.randint(5, 20) if is_success else -buy_request.amount
         
+        # ✅ ESTRUTURA COMPATÍVEL COM FRONTEND DEFINITIVO
         return {
             "buy": {
                 "contract_id": contract_id,
@@ -618,7 +620,10 @@ async def buy_accumulator_contract(
                 "symbol": buy_request.symbol,
                 "growth_rate": buy_request.growth_rate,
                 "result": profit_loss,
-                "status": "win" if is_success else "loss"
+                "status": "win" if is_success else "loss",
+                "timestamp": datetime.now().isoformat(),
+                "duration": buy_request.duration,
+                "currency": "USD"
             }
         }
         
@@ -626,17 +631,23 @@ async def buy_accumulator_contract(
         logger.error(f"Accumulator buy error: {e}")
         raise HTTPException(status_code=500, detail=f"Accumulator buy failed: {str(e)}")
 
+# ✅ CORREÇÃO: Melhorar proposta para frontend definitivo
 @app.post("/api/accumulators/proposal")
 @cache(expire=30)
 async def get_accumulator_proposal(buy_request: AccumulatorBuyRequest):
     import random
     potential_payout = buy_request.amount * (1 + buy_request.growth_rate * random.randint(8, 15))
+    potential_return = potential_payout - buy_request.amount
     
+    # ✅ ESTRUTURA MELHORADA para frontend definitivo
     return {
         "proposal": {
             "display_value": f"{potential_payout:.2f}",
             "payout": potential_payout,
-            "growth_rate": buy_request.growth_rate
+            "growth_rate": buy_request.growth_rate,
+            "potential_return": potential_return,
+            "return_percentage": (potential_return / buy_request.amount) * 100,
+            "timestamp": datetime.now().isoformat()
         }
     }
 
@@ -658,6 +669,7 @@ async def run_ai_robot(config: RobotConfig, loginid: str):
         robot_active = False
         logger.info(f"🤖 Robô AI parado")
 
+# ✅ CORREÇÃO: Melhorar resposta do robô AI
 @app.post("/api/robot/toggle")
 async def toggle_robot(config: RobotConfig, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
     global robot_active
@@ -665,10 +677,15 @@ async def toggle_robot(config: RobotConfig, background_tasks: BackgroundTasks, u
     if not robot_active:
         robot_active = True
         background_tasks.add_task(run_ai_robot, config, user['loginid'])
+        
+        # ✅ ADICIONADO: Incluir análise de mercado na resposta
+        market_analysis = await get_market_analysis("1HZ100V", config.strategy)
+        
         return {
             "status": "running",
             "message": f"Robô AI ativado com estratégia {config.strategy}",
-            "config": config.dict()
+            "config": config.dict(),
+            "analysis": market_analysis  # ✅ Frontend definitivo espera este campo
         }
     else:
         robot_active = False
@@ -724,7 +741,168 @@ async def chatbot_ask(query_data: ChatQuery, request: Request):
         "response": "Desculpe, sou especializado em Accumulator Options. Posso ajudar com: conexão Deriv, robô AI, estratégias, símbolos disponíveis, gestão de risco."
     }
 
+# ==================== NOVOS ENDPOINTS PARA FRONTEND DEFINITIVO ====================
+
+# ✅ NOVO: Endpoint de análise de mercado
+@app.get("/api/market/analysis")
+@cache(expire=120)
+async def get_market_analysis(symbol: str = "1HZ100V", strategy: str = "moderate"):
+    """
+    Fornece análise de mercado para o frontend definitivo
+    """
+    try:
+        # Análise baseada no símbolo e estratégia
+        volatility_scores = {
+            "1HZ10V": 0.3,   # Baixa volatilidade
+            "1HZ25V": 0.5,   # Volatilidade média-baixa
+            "1HZ50V": 0.7,   # Volatilidade média
+            "1HZ75V": 0.8,   # Volatilidade alta
+            "1HZ100V": 0.9   # Volatilidade muito alta
+        }
+        
+        strategy_impact = {
+            "conservative": 0.15,
+            "moderate": 0.0,
+            "aggressive": -0.15
+        }
+        
+        volatility = volatility_scores.get(symbol, 0.5)
+        base_probability = 0.8 - (volatility * 0.3)
+        success_probability = max(0.1, min(0.9, base_probability + strategy_impact.get(strategy, 0)))
+        recommended_rate = max(0.01, min(0.05, 0.03 - (volatility * 0.02)))
+        
+        return {
+            "symbol": symbol,
+            "volatility": volatility,
+            "success_probability": success_probability,
+            "recommended_growth_rate": recommended_rate,
+            "analysis_time": datetime.now().isoformat(),
+            "strategy_used": strategy
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro na análise de mercado: {e}")
+        raise HTTPException(status_code=500, detail="Erro na análise de mercado")
+
+# ✅ NOVO: Endpoint de histórico de trades
+@app.get("/api/accumulators/history")
+@cache(expire=60)
+async def get_accumulator_history(
+    period: str = "7days",
+    symbol: str = "all", 
+    result: str = "all",
+    user: dict = Depends(get_current_user)
+):
+    """
+    Fornece histórico de trades para o frontend definitivo
+    """
+    try:
+        # Dados de exemplo - em produção, buscar do banco de dados
+        base_trades = [
+            {
+                "id": "ACCU_123456789",
+                "symbol": "1HZ100V",
+                "type": "ACCUMULATOR",
+                "growth_rate": 0.02,
+                "amount": 10.0,
+                "result": 8.95,
+                "ticks": 12,
+                "timestamp": (datetime.now() - timedelta(hours=2)).isoformat(),
+                "status": "win"
+            },
+            {
+                "id": "ACCU_123456788", 
+                "symbol": "1HZ75V",
+                "type": "ACCUMULATOR",
+                "growth_rate": 0.05,
+                "amount": 15.0,
+                "result": -15.0,
+                "ticks": 3,
+                "timestamp": (datetime.now() - timedelta(days=1)).isoformat(),
+                "status": "loss"
+            },
+            {
+                "id": "ACCU_123456787",
+                "symbol": "1HZ50V",
+                "type": "ACCUMULATOR", 
+                "growth_rate": 0.03,
+                "amount": 8.0,
+                "result": 12.35,
+                "ticks": 18,
+                "timestamp": (datetime.now() - timedelta(days=2)).isoformat(),
+                "status": "win"
+            }
+        ]
+        
+        # Filtrar trades baseado nos parâmetros
+        filtered_trades = []
+        for trade in base_trades:
+            if symbol != "all" and trade["symbol"] != symbol:
+                continue
+            if result != "all" and trade["status"] != result:
+                continue
+            filtered_trades.append(trade)
+        
+        # Calcular estatísticas
+        total_trades = len(filtered_trades)
+        winning_trades = len([t for t in filtered_trades if t["status"] == "win"])
+        losing_trades = len([t for t in filtered_trades if t["status"] == "loss"])
+        win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+        total_profit = sum(trade["result"] for trade in filtered_trades)
+        avg_profit = total_profit / total_trades if total_trades > 0 else 0
+        
+        return {
+            "trades": filtered_trades,
+            "stats": {
+                "total_trades": total_trades,
+                "winning_trades": winning_trades,
+                "losing_trades": losing_trades,
+                "win_rate": round(win_rate, 2),
+                "total_profit": round(total_profit, 2),
+                "average_profit": round(avg_profit, 2),
+                "period": period,
+                "symbol": symbol
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao carregar histórico: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao carregar histórico")
+
+# ✅ NOVO: Endpoint para dados do dashboard
+@app.get("/api/dashboard/data")
+async def get_dashboard_data(user: dict = Depends(get_current_user)):
+    """
+    Fornece todos os dados necessários para o dashboard do frontend definitivo
+    """
+    try:
+        # Obter saldo
+        balance_response = await get_account_balance(user)
+        balance_data = balance_response if isinstance(balance_response, dict) else await balance_response.json()
+        
+        # Obter status do robô
+        robot_status = await get_robot_status()
+        
+        # Obter análise de mercado
+        market_analysis = await get_market_analysis("1HZ100V", "moderate")
+        
+        # Obter histórico recente
+        recent_history = await get_accumulator_history("1day", "all", "all", user)
+        
+        return {
+            "balance": balance_data.get("balance", {}),
+            "robot_status": robot_status,
+            "market_analysis": market_analysis,
+            "recent_trades": recent_history.get("trades", [])[:5],  # Últimos 5 trades
+            "quick_stats": recent_history.get("stats", {}),
+            "last_updated": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao carregar dados do dashboard: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao carregar dados do dashboard")
 # --- HEALTH CHECK ---
+# ✅ CORREÇÃO: Health check mais detalhado
 @app.get("/api/health")
 async def health_check():
     return {
@@ -736,7 +914,22 @@ async def health_check():
         "active_users": len(active_tokens),
         "user_sessions": len(user_sessions),
         "environment": ENVIRONMENT,
-        "version": "2.4.0"
+        "version": "2.5.0",  # Atualizado
+        "endpoints_available": [
+            "/api/me",
+            "/api/balance", 
+            "/api/symbols/accumulators",
+            "/api/accumulators/buy",
+            "/api/accumulators/proposal",
+            "/api/accumulators/history",
+            "/api/market/analysis",
+            "/api/robot/toggle",
+            "/api/robot/status",
+            "/api/dashboard/data",
+            "/api/auth/refresh",
+            "/api/chatbot/ask",
+            "/api/contact"
+        ]
     }
 
 # --- PRODUCTION INITIALIZATION ---
