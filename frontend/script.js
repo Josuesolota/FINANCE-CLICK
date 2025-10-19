@@ -1,3 +1,96 @@
+// ==================== PWA SUPPORT ====================
+
+// Registrar Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/service-worker.js')
+            .then(function(registration) {
+                console.log('✅ Service Worker registrado com sucesso:', registration.scope);
+                
+                // Verificar atualizações
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    console.log('🔄 Nova versão do Service Worker encontrada');
+                    
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            console.log('📦 Nova versão pronta para instalação');
+                            showPWAUpdateNotification();
+                        }
+                    });
+                });
+            })
+            .catch(function(error) {
+                console.log('❌ Falha no registro do Service Worker:', error);
+            });
+    });
+}
+
+// Detectar se é PWA
+function isRunningAsPWA() {
+    return window.matchMedia('(display-mode: standalone)').matches || 
+           window.navigator.standalone === true;
+}
+
+// Instalar PWA
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallPromotion();
+});
+
+function showInstallPromotion() {
+    const installBtn = document.getElementById('installPWA');
+    if (installBtn) {
+        installBtn.style.display = 'block';
+        installBtn.addEventListener('click', installPWA);
+    }
+}
+
+async function installPWA() {
+    if (!deferredPrompt) return;
+    
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
+        console.log('✅ PWA instalado pelo usuário');
+        showNotification('FinanceClick instalado com sucesso!', 'success');
+    } else {
+        console.log('❌ Usuário recusou a instalação do PWA');
+    }
+    
+    deferredPrompt = null;
+}
+
+function showPWAUpdateNotification() {
+    if (isRunningAsPWA()) {
+        showNotification('Nova versão disponível! Recarregue o app para atualizar.', 'info');
+    }
+}
+
+// Network status monitoring
+function setupNetworkMonitoring() {
+    window.addEventListener('online', () => {
+        console.log('✅ Conexão restaurada');
+        showNotification('Conexão restaurada - Sincronizando dados...', 'success');
+        // Re-sincronizar dados se necessário
+        if (currentUser) {
+            updateAccountBalance();
+            updateRobotStatus();
+        }
+    });
+
+    window.addEventListener('offline', () => {
+        console.log('❌ Conexão perdida');
+        showNotification('Você está offline - Modo limitado', 'warning');
+    });
+}
+
+// Inicializar monitoramento de rede
+setupNetworkMonitoring();
+
 // script.js - FINANCECLICK - VERSÃO COMPLETA E ROBUSTA
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 FinanceClick - Inicializando plataforma de trading...');
