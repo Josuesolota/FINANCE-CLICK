@@ -7,7 +7,6 @@ if ('serviceWorker' in navigator) {
             .then(function(registration) {
                 console.log('✅ Service Worker registrado com sucesso:', registration.scope);
                 
-                // Verificar atualizações
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
                     console.log('🔄 Nova versão do Service Worker encontrada');
@@ -75,7 +74,6 @@ function setupNetworkMonitoring() {
     window.addEventListener('online', () => {
         console.log('✅ Conexão restaurada');
         showNotification('Conexão restaurada - Sincronizando dados...', 'success');
-        // Re-sincronizar dados se necessário
         if (currentUser) {
             updateAccountBalance();
             updateRobotStatus();
@@ -88,20 +86,18 @@ function setupNetworkMonitoring() {
     });
 }
 
-// Inicializar monitoramento de rede
-setupNetworkMonitoring();
-
-// script.js - FINANCECLICK - VERSÃO COMPLETA E ROBUSTA
-document.addEventListener('DOMContentLoaded', function() {
+// script.js - FINANCECLICK - VERSÃO CORRIGIDA COM FLUXO OAUTH FIXED
+document.addEventListener('DOMContentLoaded'), function() {
     console.log('🎯 FinanceClick - Inicializando plataforma de trading...');
-    
-    // ==================== CONFIGURAÇÃO E VARIÁVEIS ====================
-    const CONFIG = {
+}
+    // ==================== CONFIGURAÇÃO ====================
+    ;const CONFIG = {
         appName: 'FinanceClick',
-        version: '2.0.0',
-        apiBaseUrl: '',
+        version: '2.5.0',
+        apiBaseUrl: window.location.origin,
         updateInterval: 30000,
-        maxRetries: 3
+        maxRetries: 3,
+        timeout: 10000
     };
 
     // Estado da aplicação
@@ -110,46 +106,44 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentBalance = 0;
     let marketData = null;
     let activeContracts = [];
-    let retryCount = 0;
 
-    // Elementos DOM - Busca robusta
-    const elements = {
-        menuToggle: document.getElementById('menuToggle'),
-        mainNav: document.getElementById('mainNav'),
-        loginLogoutBtn: document.getElementById('loginLogoutBtn'),
-        userInfoElement: document.getElementById('userInfo'),
-        accountBalance: document.getElementById('accountBalance'),
-        toggleRobotBtn: document.getElementById('toggleRobotBtn'),
-        aiStatus: document.getElementById('aiStatus'),
-        buyAccumulatorBtn: document.getElementById('buyAccumulatorBtn'),
-        symbolSelect: document.getElementById('symbolSelect'),
-        growthRate: document.getElementById('growthRate'),
-        amount: document.getElementById('amount'),
-        strategySelect: document.getElementById('strategySelect'),
-        tradeAmount: document.getElementById('tradeAmount'),
-        chatInput: document.getElementById('chatInput'),
-        sendChatBtn: document.getElementById('sendChatBtn'),
-        chatMessages: document.getElementById('chatMessages'),
-        contractDetails: document.getElementById('contractDetails'),
-        marketAnalysis: document.getElementById('marketAnalysis'),
-        proposalResult: document.getElementById('proposalResult')
-    };
+    // Elementos DOM
+    let elements = {};
 
-    // ==================== SISTEMA DE AUTENTICAÇÃO ====================
+    // ==================== SISTEMA DE AUTENTICAÇÃO CORRIGIDO ====================
 
     /**
-     * Processa callback OAuth da Deriv - CORREÇÃO CRÍTICA
+     * ✅ CORREÇÃO CRÍTICA: Processa callback OAuth da Deriv com redirecionamento correto
      */
     function processOAuthCallback() {
-        console.group('🔄 Processamento OAuth Callback');
+        console.group('🔄 Processamento OAuth Callback - Fluxo Corrigido');
         const urlParams = new URLSearchParams(window.location.search);
         const currentUrl = window.location.href;
         
-        console.log('📍 URL completa:', currentUrl);
-        console.log('📋 Parâmetros URL:', window.location.search);
+        console.log('📍 URL atual:', currentUrl);
         
+        // Verificar se há parâmetros OAuth OU se há erro de autenticação
         const hasOAuthParams = urlParams.has('acct1') || urlParams.has('token1');
-        console.log('🎯 Parâmetros OAuth detectados:', hasOAuthParams);
+        const hasAuthError = urlParams.has('auth_error');
+        
+        console.log('🎯 Parâmetros detectados:', { 
+            hasOAuthParams, 
+            hasAuthError,
+            authError: urlParams.get('auth_error')
+        });
+        
+        if (hasAuthError) {
+            const errorCode = urlParams.get('auth_error');
+            console.error('❌ Erro de autenticação detectado:', errorCode);
+            
+            // Limpar URL e mostrar mensagem de erro
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+            
+            showNotification('Erro na autenticação. Tente novamente.', 'error');
+            console.groupEnd();
+            return false;
+        }
         
         if (hasOAuthParams) {
             console.log('✅ Iniciando processamento de tokens OAuth...');
@@ -157,7 +151,6 @@ document.addEventListener('DOMContentLoaded', function() {
             let tokensProcessed = false;
             let i = 1;
             
-            // Processar todas as contas retornadas
             while (urlParams.has(`acct${i}`) && urlParams.has(`token${i}`)) {
                 const loginid = urlParams.get(`acct${i}`);
                 const token = urlParams.get(`token${i}`);
@@ -165,31 +158,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 console.log(`📥 Processando conta ${i}:`, { 
                     loginid, 
-                    token: token ? `***${token.slice(-4)}` : 'NULL', 
-                    currency 
+                    token: token ? `***${token.slice(-4)}` : 'NULL'
                 });
                 
                 if (loginid && token && token.length > 10) {
-                    // Salvar dados de autenticação
                     saveAuthData(loginid, token, currency);
                     tokensProcessed = true;
-                    
                     console.log('💾 Tokens salvos com sucesso:', loginid);
-                    break; // Usar primeira conta válida
-                } else {
-                    console.warn('⚠️ Token ou loginid inválido na conta', i);
+                    break;
                 }
                 i++;
             }
             
             if (tokensProcessed) {
-                // Limpar URL parameters - IMPORTANTE!
+                // ✅ CORREÇÃO: Limpar URL E redirecionar para dashboard
                 const cleanUrl = window.location.pathname;
                 window.history.replaceState({}, document.title, cleanUrl);
                 console.log('🧹 URL limpa para:', cleanUrl);
                 
+                // ✅ CORREÇÃO: Redirecionar para dashboard após processar tokens
+                console.log('🔄 Redirecionando para dashboard...');
+                showNotification('Autenticação bem-sucedida! Redirecionando...', 'success');
+                
+                // Pequeno delay para mostrar a notificação
+                setTimeout(() => {
+                    window.location.href = '/dashboard.html';
+                }, 1500);
+                
                 console.groupEnd();
                 return true;
+            } else {
+                console.warn('⚠️ Tokens OAuth presentes mas inválidos');
+                showNotification('Erro: Tokens de autenticação inválidos', 'error');
             }
         }
         
@@ -226,8 +226,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log('📋 Verificação dados auth:', { 
             hasToken: !!token, 
-            hasLoginId: !!loginid, 
-            tokenLength: token?.length,
+            hasLoginId: !!loginid,
             isValid 
         });
         
@@ -281,38 +280,41 @@ document.addEventListener('DOMContentLoaded', function() {
      * Inicialização principal da aplicação
      */
     async function initializeApplication() {
-        console.group('🚀 Inicialização da Aplicação');
+        console.group('🚀 Inicialização da Aplicação - Fluxo Corrigido');
         
         try {
             // 1. Configurações iniciais
             setupEssentialStyles();
+            initializeDOMElements();
             setupMobileNavigation();
             setupActiveNavigation();
             
-            // 2. Processar callback OAuth (se houver)
+            // 2. ✅ CORREÇÃO: Processar callback OAuth PRIMEIRO (se houver)
             const hadOAuthCallback = processOAuthCallback();
             
-            // 3. Verificar autenticação
-            if (hadOAuthCallback || hasAuthData()) {
-                console.log('🔐 Verificando autenticação...');
+            // 3. Se houve callback OAuth, não continuar a inicialização normal
+            // pois vamos redirecionar para o dashboard
+            if (hadOAuthCallback) {
+                console.log('🔄 OAuth processado - Aguardando redirecionamento...');
+                console.groupEnd();
+                return;
+            }
+            
+            // 4. Verificar autenticação normal (sem OAuth callback)
+            if (hasAuthData()) {
+                console.log('🔐 Verificando autenticação existente...');
                 await checkAuthentication();
-                
-                if (hadOAuthCallback) {
-                    await restoreBackendSession();
-                    // Re-verificar após restaurar sessão
-                    await checkAuthentication();
-                }
             } else {
                 console.log('🔐 Nenhum dado de autenticação encontrado');
                 updateUIForUnauthenticated();
             }
             
-            // 4. Configurar interface e eventos
+            // 5. Configurar interface e eventos
             setupUserInterface();
             setupEventListeners();
             await loadInitialData();
             
-            // 5. Iniciar serviços em background
+            // 6. Iniciar serviços em background
             startBackgroundServices();
             
             console.log('✅ Aplicação inicializada com sucesso');
@@ -323,6 +325,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         console.groupEnd();
+    }
+
+    /**
+     * Inicializa elementos DOM de forma robusta
+     */
+    function initializeDOMElements() {
+        const elementIds = [
+            'menuToggle', 'mainNav', 'loginLogoutBtn', 'userInfo',
+            'accountBalance', 'toggleRobotBtn', 'aiStatus', 'buyAccumulatorBtn',
+            'symbolSelect', 'growthRate', 'amount', 'strategySelect',
+            'tradeAmount', 'chatInput', 'sendChatBtn', 'chatMessages',
+            'contractDetails', 'marketAnalysis', 'proposalResult'
+        ];
+        
+        elements = {};
+        elementIds.forEach(id => {
+            elements[id] = document.getElementById(id);
+            if (!elements[id]) {
+                console.warn(`⚠️ Elemento não encontrado: ${id}`);
+            }
+        });
     }
 
     /**
@@ -340,9 +363,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             console.log('🔄 Consultando endpoint /api/me...');
-            const response = await fetch('/api/me', {
-                headers: getAuthHeaders(),
-                timeout: 10000
+            const response = await fetchWithTimeout('/api/me', {
+                headers: getAuthHeaders()
             });
 
             console.log('📡 Status da resposta:', response.status);
@@ -359,7 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const restored = await restoreBackendSession();
                 
                 if (restored) {
-                    await checkAuthentication(); // Retry
+                    await checkAuthentication();
                 } else {
                     console.log('❌ Falha ao restaurar sessão');
                     clearAuthData();
@@ -385,10 +407,9 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             console.log('🔄 Restaurando sessão no backend...');
             
-            const response = await fetch('/api/auth/refresh', {
+            const response = await fetchWithTimeout('/api/auth/refresh', {
                 method: 'POST',
-                headers: getAuthHeaders(),
-                timeout: 10000
+                headers: getAuthHeaders()
             });
 
             if (response.ok) {
@@ -422,8 +443,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Informações do usuário
-            if (elements.userInfoElement) {
-                elements.userInfoElement.innerHTML = `
+            if (elements.userInfo) {
+                elements.userInfo.innerHTML = `
                     <div class="user-welcome">
                         <div class="user-name">Bem-vindo, <strong>${userData.name || 'Trader'}</strong>!</div>
                         <div class="user-account">
@@ -432,22 +453,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                 `;
-                elements.userInfoElement.style.display = 'flex';
+                elements.userInfo.style.display = 'flex';
             }
 
             // Mostrar elementos protegidos
             document.querySelectorAll('[data-auth-required]').forEach(el => {
                 el.style.display = 'block';
-                el.classList.add('authenticated-visible');
             });
 
             // Esconder elementos para não autenticados
             document.querySelectorAll('[data-no-auth]').forEach(el => {
                 el.style.display = 'none';
             });
-
-            // Atualizar elementos específicos da página
-            updatePageSpecificUI();
 
             console.log('✅ UI atualizada para modo autenticado');
 
@@ -474,15 +491,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Informações do usuário
-            if (elements.userInfoElement) {
-                elements.userInfoElement.innerHTML = '';
-                elements.userInfoElement.style.display = 'none';
+            if (elements.userInfo) {
+                elements.userInfo.innerHTML = '';
+                elements.userInfo.style.display = 'none';
             }
 
             // Esconder elementos protegidos
             document.querySelectorAll('[data-auth-required]').forEach(el => {
                 el.style.display = 'none';
-                el.classList.remove('authenticated-visible');
             });
 
             // Mostrar elementos para não autenticados
@@ -499,40 +515,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.groupEnd();
     }
 
-    /**
-     * Atualiza UI específica da página atual
-     */
-    function updatePageSpecificUI() {
-        const currentPage = window.location.pathname;
-        
-        if (currentPage.includes('dashboard')) {
-            updateDashboardUI();
-        } else if (currentPage.includes('history')) {
-            updateHistoryUI();
-        } else if (currentPage.includes('guide')) {
-            updateGuideUI();
-        }
-    }
-
-    /**
-     * Atualiza UI do dashboard
-     */
-    function updateDashboardUI() {
-        console.log('📊 Atualizando UI do dashboard...');
-        
-        // Atualizar saldo
-        updateAccountBalance();
-        
-        // Atualizar status do robô
-        updateRobotStatus();
-        
-        // Carregar análise de mercado
-        loadMarketAnalysis();
-        
-        // Carregar símbolos disponíveis
-        loadTradingSymbols();
-    }
-
     // ==================== SISTEMA DE TRADING ====================
 
     /**
@@ -542,23 +524,18 @@ document.addEventListener('DOMContentLoaded', function() {
         console.group('💰 Configurando Sistema de Trading');
         
         try {
-            // Botão de compra
             if (elements.buyAccumulatorBtn) {
                 elements.buyAccumulatorBtn.addEventListener('click', executeAccumulatorPurchase);
-                console.log('✅ Botão de compra configurado');
             }
 
-            // Select de símbolos
             if (elements.symbolSelect) {
                 elements.symbolSelect.addEventListener('change', handleSymbolChange);
             }
 
-            // Select de taxa de crescimento
             if (elements.growthRate) {
                 elements.growthRate.addEventListener('change', updateProposalPreview);
             }
 
-            // Input de valor
             if (elements.amount) {
                 elements.amount.addEventListener('input', updateProposalPreview);
             }
@@ -595,7 +572,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             console.log('📦 Dados da trade:', tradeData);
 
-            // Validar dados
             if (tradeData.amount < 5 || tradeData.amount > 1000) {
                 showNotification('❌ Valor deve estar entre $5 e $1000', 'error');
                 console.groupEnd();
@@ -604,7 +580,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             showNotification('🔄 Executando compra...', 'info');
 
-            const response = await fetch('/api/accumulators/buy', {
+            const response = await fetchWithTimeout('/api/accumulators/buy', {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify(tradeData)
@@ -616,11 +592,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 showNotification('✅ Compra executada com sucesso!', 'success');
                 
-                // Atualizar dados
                 await updateAccountBalance();
-                await loadTradingHistory();
                 
-                // Mostrar detalhes do contrato
                 if (result.buy) {
                     displayContractDetails(result.buy);
                 }
@@ -639,76 +612,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.groupEnd();
     }
 
-    /**
-     * Carrega símbolos de trading disponíveis
-     */
-    async function loadTradingSymbols() {
-        if (!elements.symbolSelect) return;
-        
-        try {
-            console.log('📈 Carregando símbolos...');
-            
-            const response = await fetch('/api/symbols/accumulators', {
-                headers: getAuthHeaders()
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                elements.symbolSelect.innerHTML = '';
-                
-                data.accumulator_symbols.forEach(symbol => {
-                    const option = document.createElement('option');
-                    option.value = symbol.symbol;
-                    option.textContent = `${symbol.display_name} (${symbol.symbol})`;
-                    elements.symbolSelect.appendChild(option);
-                });
-                
-                console.log(`✅ ${data.accumulator_symbols.length} símbolos carregados`);
-            }
-        } catch (error) {
-            console.error('❌ Erro ao carregar símbolos:', error);
-        }
-    }
-
-    /**
-     * Atualiza preview da proposta
-     */
-    async function updateProposalPreview() {
-        if (!elements.proposalResult) return;
-        
-        try {
-            const proposalData = {
-                symbol: elements.symbolSelect?.value || '1HZ100V',
-                growth_rate: parseFloat(elements.growthRate?.value) || 0.02,
-                amount: parseFloat(elements.amount?.value) || 5,
-                duration: 60,
-                duration_unit: 't'
-            };
-
-            const response = await fetch('/api/accumulators/proposal', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(proposalData)
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                elements.proposalResult.innerHTML = `
-                    <div class="proposal-card">
-                        <h4>📊 Proposta Calculada</h4>
-                        <div class="proposal-details">
-                            <p><strong>Payout Potencial:</strong> $${data.proposal?.display_value || '0.00'}</p>
-                            <p><strong>Taxa de Crescimento:</strong> ${(proposalData.growth_rate * 100).toFixed(1)}%</p>
-                            <p><strong>Retorno Estimado:</strong> $${(parseFloat(data.proposal?.payout || 0) - proposalData.amount).toFixed(2)}</p>
-                        </div>
-                    </div>
-                `;
-            }
-        } catch (error) {
-            console.error('❌ Erro ao obter proposta:', error);
-        }
-    }
-
     // ==================== SISTEMA DO ROBÔ AI ====================
 
     /**
@@ -720,18 +623,8 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             if (elements.toggleRobotBtn) {
                 elements.toggleRobotBtn.addEventListener('click', toggleRobotAI);
-                console.log('✅ Botão do robô configurado');
             }
 
-            if (elements.strategySelect) {
-                elements.strategySelect.addEventListener('change', updateRobotStrategy);
-            }
-
-            if (elements.tradeAmount) {
-                elements.tradeAmount.addEventListener('input', updateTradeAmountDisplay);
-            }
-
-            // Verificar status atual
             updateRobotStatus();
 
             console.log('✅ Sistema AI configurado');
@@ -764,7 +657,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             showNotification('🔄 Alternando robô AI...', 'info');
 
-            const response = await fetch('/api/robot/toggle', {
+            const response = await fetchWithTimeout('/api/robot/toggle', {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify(config)
@@ -815,7 +708,7 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     async function updateRobotStatus() {
         try {
-            const response = await fetch('/api/robot/status', {
+            const response = await fetchWithTimeout('/api/robot/status', {
                 headers: getAuthHeaders()
             });
 
@@ -838,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!elements.accountBalance) return;
         
         try {
-            const response = await fetch('/api/balance', {
+            const response = await fetchWithTimeout('/api/balance', {
                 headers: getAuthHeaders()
             });
 
@@ -861,235 +754,29 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // ==================== UTILITÁRIOS AVANÇADOS ====================
+
     /**
-     * Carrega histórico de trades
+     * Fetch com timeout e tratamento de erro
      */
-    async function loadTradingHistory() {
-        if (!window.location.pathname.includes('history')) return;
+    async function fetchWithTimeout(resource, options = {}) {
+        const { timeout = CONFIG.timeout } = options;
+        
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
         
         try {
-            const response = await fetch('/api/accumulators/history', {
-                headers: getAuthHeaders()
+            const response = await fetch(resource, {
+                ...options,
+                signal: controller.signal
             });
-
-            if (response.ok) {
-                const data = await response.json();
-                updateHistoryDisplay(data);
-            }
+            clearTimeout(id);
+            return response;
         } catch (error) {
-            console.error('❌ Erro ao carregar histórico:', error);
+            clearTimeout(id);
+            throw error;
         }
     }
-
-    // ==================== SISTEMA DE ANÁLISE DE MERCADO ====================
-
-    /**
-     * Carrega análise de mercado
-     */
-    async function loadMarketAnalysis() {
-        if (!elements.marketAnalysis) return;
-        
-        try {
-            const response = await fetch('/api/market/analysis?symbol=1HZ100V&strategy=moderate', {
-                headers: getAuthHeaders()
-            });
-
-            if (response.ok) {
-                const analysis = await response.json();
-                displayMarketAnalysis(analysis);
-            }
-        } catch (error) {
-            console.error('❌ Erro ao carregar análise:', error);
-        }
-    }
-
-    /**
-     * Exibe análise de mercado
-     */
-    function displayMarketAnalysis(analysis) {
-        if (!elements.marketAnalysis) return;
-
-        const volatilityClass = analysis.volatility > 0.7 ? 'high' : 
-                              analysis.volatility > 0.4 ? 'medium' : 'low';
-        
-        const probabilityClass = analysis.success_probability > 0.7 ? 'high' : 
-                                analysis.success_probability > 0.4 ? 'medium' : 'low';
-
-        elements.marketAnalysis.innerHTML = `
-            <div class="analysis-card">
-                <h4>📈 Análise do Mercado</h4>
-                <div class="analysis-grid">
-                    <div class="analysis-item">
-                        <label>Volatilidade:</label>
-                        <span class="metric ${volatilityClass}">
-                            ${(analysis.volatility * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                    <div class="analysis-item">
-                        <label>Prob. Sucesso:</label>
-                        <span class="metric ${probabilityClass}">
-                            ${(analysis.success_probability * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                    <div class="analysis-item">
-                        <label>Taxa Recomendada:</label>
-                        <span class="metric recommended">
-                            ${(analysis.recommended_growth_rate * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    // ==================== SISTEMA DE CHATBOT ====================
-
-    /**
-     * Configura sistema de chatbot
-     */
-    function setupChatbot() {
-        if (!elements.chatInput || !elements.sendChatBtn || !elements.chatMessages) {
-            return;
-        }
-
-        console.log('💬 Configurando chatbot...');
-
-        elements.sendChatBtn.addEventListener('click', sendChatMessage);
-        elements.chatInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendChatMessage();
-            }
-        });
-
-        // Mensagem de boas-vindas
-        addChatMessage('Olá! Sou o assistente da FinanceClick. Como posso ajudar você com Accumulator Options?', false);
-    }
-
-    /**
-     * Envia mensagem no chatbot
-     */
-    async function sendChatMessage() {
-        const message = elements.chatInput.value.trim();
-        if (!message) return;
-
-        addChatMessage(message, true);
-        elements.chatInput.value = '';
-
-        try {
-            const response = await fetch('/api/chatbot/ask', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ query: message })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                addChatMessage(data.response, false);
-            } else {
-                addChatMessage('Desculpe, houve um erro ao processar sua mensagem.', false);
-            }
-        } catch (error) {
-            console.error('❌ Erro no chatbot:', error);
-            addChatMessage('Desculpe, estou com problemas de conexão no momento.', false);
-        }
-    }
-
-    /**
-     * Adiciona mensagem ao chat
-     */
-    function addChatMessage(message, isUser) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `chat-message ${isUser ? 'user-message' : 'bot-message'}`;
-        
-        if (isUser) {
-            messageDiv.innerHTML = `
-                <div class="message-content user">
-                    <div class="message-text">${message}</div>
-                    <div class="message-time">${new Date().toLocaleTimeString()}</div>
-                </div>
-            `;
-        } else {
-            messageDiv.innerHTML = `
-                <div class="message-content bot">
-                    <div class="bot-avatar">🤖</div>
-                    <div class="message-text">${message}</div>
-                    <div class="message-time">${new Date().toLocaleTimeString()}</div>
-                </div>
-            `;
-        }
-
-        elements.chatMessages.appendChild(messageDiv);
-        elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
-    }
-
-    // ==================== SISTEMA DE NOTIFICAÇÕES ====================
-
-    /**
-     * Mostra notificação para o usuário
-     */
-    function showNotification(message, type = 'info') {
-        // Remover notificações existentes
-        document.querySelectorAll('.notification').forEach(n => n.remove());
-
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        
-        const icons = {
-            success: '✅',
-            error: '❌',
-            warning: '⚠️',
-            info: 'ℹ️'
-        };
-
-        notification.innerHTML = `
-            <div class="notification-content">
-                <span class="notification-icon">${icons[type] || ''}</span>
-                <span class="notification-message">${message}</span>
-                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
-                    &times;
-                </button>
-            </div>
-        `;
-
-        // Aplicar estilos
-        Object.assign(notification.style, {
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            padding: '0',
-            borderRadius: '8px',
-            color: 'white',
-            zIndex: '10000',
-            minWidth: '300px',
-            maxWidth: '400px',
-            animation: 'slideInRight 0.3s ease',
-            fontFamily: 'Arial, sans-serif',
-            fontSize: '14px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            overflow: 'hidden'
-        });
-
-        const colors = {
-            success: '#4CAF50',
-            error: '#f44336',
-            warning: '#ff9800',
-            info: '#2196F3'
-        };
-        
-        notification.style.backgroundColor = colors[type] || colors.info;
-        document.body.appendChild(notification);
-
-        // Auto-remover após 5 segundos
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
-        }, 5000);
-    }
-
-    // ==================== UTILITÁRIOS DE INTERFACE ====================
 
     /**
      * Configura navegação mobile
@@ -1102,7 +789,6 @@ document.addEventListener('DOMContentLoaded', function() {
             elements.menuToggle.classList.toggle('active');
         });
 
-        // Fechar menu ao clicar em links (mobile)
         const navLinks = elements.mainNav.querySelectorAll('a');
         navLinks.forEach(link => {
             link.addEventListener('click', function() {
@@ -1191,11 +877,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 .robot-status.active { color: #4CAF50; }
                 .robot-status { color: #666; }
-                
-                .metric.high { color: #f44336; }
-                .metric.medium { color: #ff9800; }
-                .metric.low { color: #4CAF50; }
-                .metric.recommended { color: #2196F3; }
             `;
             document.head.appendChild(styles);
         }
@@ -1210,7 +891,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('🔐 Iniciando processo de login...');
         showNotification('Redirecionando para Deriv...', 'info');
         
-        // Feedback visual
         if (elements.loginLogoutBtn) {
             elements.loginLogoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecionando...';
             elements.loginLogoutBtn.disabled = true;
@@ -1226,9 +906,9 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     async function handleLogout() {
         console.log('👋 Iniciando logout...');
-        
+    }
         try {
-            const response = await fetch('/auth/logout', {
+            const response = await fetchWithTimeout('/auth/logout', {
                 method: 'POST',
                 headers: getAuthHeaders()
             });
@@ -1239,208 +919,5 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('⚠️ Erro no logout do backend:', error);
         } finally {
-            // Sempre limpar dados locais
             clearAuthData();
-            updateUIForUnauthenticated();
-            showNotification('Logout realizado com sucesso!', 'success');
-            
-            // Redirecionar se estiver em página protegida
-            if (window.location.pathname.includes('dashboard') || 
-                window.location.pathname.includes('history')) {
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 1500);
-            }
         }
-    }
-
-    // ==================== INICIALIZAÇÃO E SERVIÇOS ====================
-
-    /**
-     * Configura todos os event listeners
-     */
-    function setupEventListeners() {
-        console.log('🔧 Configurando event listeners...');
-        
-        setupTradingEvents();
-        setupRobotAI();
-        setupChatbot();
-        setupAccordionEvents();
-    }
-
-    /**
-     * Configura eventos de acordeão
-     */
-    function setupAccordionEvents() {
-        const accordionHeaders = document.querySelectorAll('.accordion-header');
-        
-        accordionHeaders.forEach(header => {
-            header.addEventListener('click', function() {
-                const content = this.nextElementSibling;
-                this.classList.toggle('active');
-                content.classList.toggle('open');
-            });
-        });
-    }
-
-    /**
-     * Carrega dados iniciais
-     */
-    async function loadInitialData() {
-        if (!currentUser) return;
-        
-        console.log('📥 Carregando dados iniciais...');
-        
-        await Promise.all([
-            updateAccountBalance(),
-            updateRobotStatus(),
-            loadMarketAnalysis(),
-            loadTradingSymbols()
-        ]);
-    }
-
-    /**
-     * Inicia serviços em background
-     */
-    function startBackgroundServices() {
-        // Atualização periódica no dashboard
-        if (window.location.pathname.includes('dashboard')) {
-            setInterval(() => {
-                if (currentUser) {
-                    updateAccountBalance();
-                    updateRobotStatus();
-                }
-            }, CONFIG.updateInterval);
-        }
-        
-        // Verificação de saúde da conexão
-        setInterval(() => {
-            if (currentUser && !navigator.onLine) {
-                showNotification('⚠️ Conexão perdida', 'warning');
-            }
-        }, 10000);
-    }
-
-    /**
-     * Configura interface do usuário
-     */
-    function setupUserInterface() {
-        console.log('🎨 Configurando interface...');
-        
-        // Inicializar componentes visuais
-        updatePageSpecificUI();
-        
-        // Configurar temas/dark mode se necessário
-        setupTheme();
-    }
-
-    /**
-     * Configura tema da aplicação
-     */
-    function setupTheme() {
-        // Implementação básica de tema
-        const savedTheme = localStorage.getItem('financeclick_theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-    }
-
-    // ==================== FUNÇÕES DE EXIBIÇÃO ====================
-
-    /**
-     * Exibe detalhes do contrato
-     */
-    function displayContractDetails(contract) {
-        if (!elements.contractDetails) return;
-
-        const statusClass = contract.status === 'win' ? 'status-win' : 
-                          contract.status === 'loss' ? 'status-loss' : 'status-pending';
-
-        elements.contractDetails.innerHTML = `
-            <div class="contract-details-card">
-                <h4>📋 Detalhes do Contrato</h4>
-                <div class="contract-grid">
-                    <div class="contract-item">
-                        <label>ID do Contrato:</label>
-                        <span class="contract-id">${contract.contract_id || 'N/A'}</span>
-                    </div>
-                    <div class="contract-item">
-                        <label>Status:</label>
-                        <span class="contract-status ${statusClass}">${contract.status || 'Aberto'}</span>
-                    </div>
-                    <div class="contract-item">
-                        <label>Resultado:</label>
-                        <span class="contract-result ${contract.result >= 0 ? 'positive' : 'negative'}">
-                            $${contract.result || '0.00'}
-                        </span>
-                    </div>
-                    <div class="contract-item">
-                        <label>Ativo:</label>
-                        <span class="contract-symbol">${contract.symbol || 'N/A'}</span>
-                    </div>
-                    <div class="contract-item">
-                        <label>Taxa de Crescimento:</label>
-                        <span class="contract-growth">${((contract.growth_rate || 0) * 100).toFixed(1)}%</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    /**
-     * Atualiza display do histórico
-     */
-    function updateHistoryDisplay(historyData) {
-        // Implementar display do histórico
-        console.log('📊 Atualizando display do histórico:', historyData);
-    }
-
-    // ==================== INICIALIZAÇÃO FINAL ====================
-
-    /**
-     * Função de inicialização global
-     */
-    function init() {
-        console.log(`🚀 ${CONFIG.appName} v${CONFIG.version} - Iniciando...`);
-        
-        // Verificar suporte a APIs necessárias
-        if (!window.localStorage) {
-            showNotification('❌ Seu navegador não suporta localStorage', 'error');
-            return;
-        }
-        
-        if (!window.fetch) {
-            showNotification('❌ Seu navegador é muito antigo', 'error');
-            return;
-        }
-        
-        // Inicializar aplicação
-        initializeApplication();
-        
-        // Expor funções globais para debug
-        window.financeClick = {
-            version: CONFIG.version,
-            getUser: () => currentUser,
-            getAuthData: () => ({
-                token: localStorage.getItem('deriv_token'),
-                loginid: localStorage.getItem('deriv_loginid'),
-                hasAuth: hasAuthData()
-            }),
-            clearAuth: clearAuthData,
-            showNotification: showNotification
-        };
-        
-        console.log('🎉 Aplicação carregada e pronta!');
-    }
-
-    // Inicializar quando o DOM estiver pronto
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-
-    // ==================== EXPORTAÇÕES GLOBAIS ====================
-    
-    window.handleLogin = handleLogin;
-    window.handleLogout = handleLogout;
-    window.showNotification = showNotification;
-});

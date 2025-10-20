@@ -1,9 +1,9 @@
-// service-worker.js - FinanceClick PWA
-const CACHE_NAME = 'financeclick-v2.5.0';
-const STATIC_CACHE = 'static-v2';
-const DYNAMIC_CACHE = 'dynamic-v2';
+// service-worker.js - FinanceClick PWA CORRIGIDO
+const CACHE_NAME = 'financeclick-v3.0.0';
+const STATIC_CACHE = 'static-v3';
+const DYNAMIC_CACHE = 'dynamic-v3';
 
-// Arquivos para cache estático
+// Arquivos para cache estático - CAMINHOS CORRETOS
 const STATIC_FILES = [
   '/',
   '/index.html',
@@ -15,9 +15,17 @@ const STATIC_FILES = [
   '/style.css',
   '/script.js',
   '/manifest.json',
-  '/icons/icon-72x72.png',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/offline.html',
+  
+  // Ícones com caminhos corrigidos
+  '/frontend/icons/icon-72x72.png',
+  '/frontend/icons/icon-96x96.png',
+  '/frontend/icons/icon-128x128.png',
+  '/frontend/icons/icon-144x144.png',
+  '/frontend/icons/icon-152x152.png',
+  '/frontend/icons/icon-192x192.png',
+  '/frontend/icons/icon-384x384.png',
+  '/frontend/icons/icon-512x512.png'
 ];
 
 // Instalação - Cache dos arquivos estáticos
@@ -36,6 +44,7 @@ self.addEventListener('install', (event) => {
       })
       .catch((error) => {
         console.error('❌ Erro na instalação do Service Worker:', error);
+        return self.skipWaiting();
       })
   );
 });
@@ -78,16 +87,15 @@ self.addEventListener('fetch', (event) => {
 
 // Estratégia: Cache First
 async function cacheFirst(request) {
-  const cachedResponse = await caches.match(request);
-  
-  if (cachedResponse) {
-    return cachedResponse;
-  }
-
   try {
+    const cachedResponse = await caches.match(request);
+    
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+
     const networkResponse = await fetch(request);
     
-    // Cache dinâmico para novas requisições
     if (networkResponse.ok) {
       const cache = await caches.open(DYNAMIC_CACHE);
       cache.put(request, networkResponse.clone());
@@ -95,12 +103,19 @@ async function cacheFirst(request) {
     
     return networkResponse;
   } catch (error) {
-    // Fallback para página offline
+    console.log('🌐 Offline - Servindo página offline');
+    
     if (request.destination === 'document') {
-      return caches.match('/offline.html');
+      const offlinePage = await caches.match('/offline.html');
+      if (offlinePage) {
+        return offlinePage;
+      }
     }
     
-    throw error;
+    return new Response('Offline', { 
+      status: 503,
+      statusText: 'Service Unavailable'
+    });
   }
 }
 
@@ -109,25 +124,25 @@ async function networkFirst(request) {
   try {
     const networkResponse = await fetch(request);
     
-    // Atualizar cache dinâmico
-    if (networkResponse.ok) {
+    if (networkResponse.ok && request.method === 'GET') {
       const cache = await caches.open(DYNAMIC_CACHE);
       cache.put(request, networkResponse.clone());
     }
     
     return networkResponse;
   } catch (error) {
-    // Fallback para cache
+    console.log('📡 API offline - Tentando cache');
+    
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       return cachedResponse;
     }
     
-    // Para APIs, retornar erro adequado
     return new Response(
       JSON.stringify({ 
-        error: 'Você está offline e não há dados em cache',
-        code: 'OFFLINE_ERROR'
+        error: 'Connection lost',
+        message: 'Please check your internet connection',
+        code: 'NETWORK_ERROR'
       }),
       {
         status: 503,
@@ -146,38 +161,46 @@ self.addEventListener('sync', (event) => {
 });
 
 async function doBackgroundSync() {
-  // Implementar sincronização de dados offline
-  console.log('📡 Sincronizando dados...');
+  try {
+    console.log('📡 Sincronizando dados em background...');
+    // Implementar lógica de sincronização aqui
+  } catch (error) {
+    console.error('❌ Erro na sincronização:', error);
+  }
 }
 
 // Notificações push
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
-  const data = event.data.json();
-  const options = {
-    body: data.body || 'Nova notificação do FinanceClick',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/badge-72x72.png',
-    vibrate: [100, 50, 100],
-    data: {
-      url: data.url || '/'
-    },
-    actions: [
-      {
-        action: 'open',
-        title: 'Abrir'
+  try {
+    const data = event.data.json();
+    const options = {
+      body: data.body || 'Nova notificação do FinanceClick',
+      icon: '/frontend/icons/icon-192x192.png',
+      badge: '/frontend/icons/icon-72x72.png',
+      vibrate: [100, 50, 100],
+      data: {
+        url: data.url || '/'
       },
-      {
-        action: 'close', 
-        title: 'Fechar'
-      }
-    ]
-  };
+      actions: [
+        {
+          action: 'open',
+          title: 'Abrir'
+        },
+        {
+          action: 'close', 
+          title: 'Fechar'
+        }
+      ]
+    };
 
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'FinanceClick', options)
-  );
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'FinanceClick', options)
+    );
+  } catch (error) {
+    console.error('❌ Erro na notificação push:', error);
+  }
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -187,5 +210,12 @@ self.addEventListener('notificationclick', (event) => {
     event.waitUntil(
       clients.openWindow(event.notification.data.url)
     );
+  }
+});
+
+// Gerenciamento de mensagens
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });

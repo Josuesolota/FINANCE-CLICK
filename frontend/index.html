@@ -3,31 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <!-- PWA Meta Tags -->
-<meta name="application-name" content="FinanceClick">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="FinanceClick">
-<meta name="description" content="Plataforma de trading automatizado com AI para Accumulator Options">
-<meta name="format-detection" content="telephone=no">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="msapplication-config" content="/icons/browserconfig.xml">
-<meta name="msapplication-TileColor" content="#4CAF50">
-<meta name="msapplication-tap-highlight" content="no">
-<meta name="theme-color" content="#4CAF50">
+    <!-- PWA Meta Tags -->
+    <meta name="application-name" content="FinanceClick">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="FinanceClick">
+    <meta name="description" content="Plataforma de trading automatizado com AI para Accumulator Options">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="msapplication-TileColor" content="#FF3333">
+    <meta name="msapplication-tap-highlight" content="no">
+    <meta name="theme-color" content="#FF3333">
 
-<!-- Apple Touch Icons -->
-<link rel="apple-touch-icon" href="/icons/icon-152x152.png">
-<link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
-<link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png">
-<link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-167x167.png">
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/frontend/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/frontend/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/frontend/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/frontend/icons/icon-192x192.png">
 
-<!-- PWA Manifest -->
-<link rel="manifest" href="/manifest.json">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
 
-<!-- Theme Color -->
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#4CAF50">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a1a1a">
     <title>Finance Click - Negociação Automática com AI</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -60,7 +56,7 @@
     <main>
         <section id="home" class="page active">
             <div class="hero-section">
-                <h1>Negociação Inteligente e Segura. Maximixe os Seus Ganhos! </h1>
+                <h1>Negociação Inteligente e Segura. Maximize os Seus Ganhos!</h1>
                 <p>Conecte-se à Deriv e use o nosso Robô AI inteligente para otimizar seus resultados com Accumulator Options.</p>
 
                 <div id="connectionStatus" class="connection-status">
@@ -69,10 +65,10 @@
                 </div>
 
                 <div class="cta-group">
-                    <a href="https://track.deriv.com/_08mad8P6-H8-WNa_P_Nb_2Nd7ZgqdRLk/1/" target="_blank" class="btn btn-primary">
+                    <a href="https://track.deriv.com/_08mad8P6-H8-WNa_P_Nb_2Nd7ZgqdRLk/1/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
                         <i class="fas fa-external-link-alt"></i> Abrir Conta Deriv
                     </a>
-                    <a href="https://app.airtm.com/ivt/josu6i8tt4ui" target="_blank" class="btn btn-secondary">
+                    <a href="https://app.airtm.com/ivt/josu6i8tt4ui" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
                         <i class="fas fa-wallet"></i> Cadastrar na Airtm
                     </a>
                     <a href="dashboard.html" class="btn btn-success" id="goToDashboardBtn">
@@ -141,35 +137,33 @@
             </div>
 
             <div class="benefits-section">
-                <div>
+                <div class="benefits-header">
                     <h2>Por que Accumulator Options?</h2>
-                    <p>
-                        A estratégia ideal para mercados laterais com risco limitado e crescimento exponencial
-                    </p>
+                    <p>A estratégia ideal para mercados laterais com risco limitado e crescimento exponencial</p>
                 </div>
 
-                <div>
-                    <div>
-                        <div>✓</div>
+                <div class="benefits-grid">
+                    <div class="benefit-card">
+                        <div class="benefit-icon">✓</div>
                         <h4>Risco Limitado</h4>
                         <p>Você só arrisca o valor do stake inicial. Sem surpresas desagradáveis.</p>
                     </div>
 
-                    <div>
-                        <div>📈</div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">📈</div>
                         <h4>Crescimento Exponencial</h4>
                         <p>Taxas de 1% a 5% por tick enquanto o preço permanece na faixa.</p>
                     </div>
 
-                    <div>
-                        <div>⚡</div>
+                    <div class="benefit-card">
+                        <div class="benefit-icon">⚡</div>
                         <h4>Resultados Rápidos</h4>
                         <p>Trades de 1 a 60 ticks. Você vê os resultados em minutos.</p>
                     </div>
                 </div>
             </div>
 
-            <div>
+            <div class="final-cta">
                 <h3>Pronto para Começar?</h3>
                 <p>
                     Conecte sua conta Deriv e ative o robô AI para negociar Accumulator Options automaticamente.
@@ -198,7 +192,10 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            let currentHomeUser = null;
+
             function updateHomePageForAuth(user) {
+                currentHomeUser = user;
                 const authWarning = document.getElementById('authWarning');
                 const quickStats = document.getElementById('quickStats');
                 const goToDashboardBtn = document.getElementById('goToDashboardBtn');
@@ -208,11 +205,13 @@
                     if (authWarning) authWarning.style.display = 'none';
                     if (quickStats) quickStats.style.display = 'grid';
                     if (goToDashboardBtn) goToDashboardBtn.style.display = 'inline-block';
-                    if (connectionStatus) connectionStatus.style.display = 'block';
-
+                    if (connectionStatus) {
+                        connectionStatus.style.display = 'flex';
+                        connectionStatus.innerHTML = '<i class="fas fa-circle" style="color: #28a745"></i><span>Conectado à Deriv API</span>';
+                    }
                     updateHomeStats();
                 } else {
-                    if (authWarning) authWarning.style.display = 'block';
+                    if (authWarning) authWarning.style.display = 'flex';
                     if (quickStats) quickStats.style.display = 'none';
                     if (goToDashboardBtn) goToDashboardBtn.style.display = 'none';
                     if (connectionStatus) connectionStatus.style.display = 'none';
@@ -225,42 +224,48 @@
                 const performanceMetric = document.getElementById('performanceMetric');
 
                 try {
+                    // Robot Status
                     const robotStatusResponse = await fetch('/api/robot/status');
                     if (robotStatusResponse.ok) {
                         const robotStatus = await robotStatusResponse.json();
                         if (robotStatusText) {
                             robotStatusText.innerHTML = robotStatus.active ? 
-                                '<span>● Ativo</span>' : 
-                                '<span>● Inativo</span>';
+                                '<span style="color: #28a745">● Ativo</span>' : 
+                                '<span style="color: #FF3333">● Inativo</span>';
                         }
                     }
 
+                    // Balance
                     const balanceResponse = await fetch('/api/balance');
                     if (balanceResponse.ok) {
                         const balanceData = await balanceResponse.json();
                         if (homeBalance && balanceData.balance) {
-                            homeBalance.textContent = `$${balanceData.balance.balance?.toFixed(2) || '0.00'}`;
+                            homeBalance.innerHTML = `<span style="color: #28a745">$${balanceData.balance.balance?.toFixed(2) || '0.00'}</span>`;
                         }
                     }
 
+                    // Market Analysis
                     const analysisResponse = await fetch('/api/market/analysis?symbol=1HZ100V&strategy=moderate');
                     if (analysisResponse.ok) {
                         const analysis = await analysisResponse.json();
                         if (performanceMetric) {
                             const successRate = (analysis.success_probability * 100).toFixed(1);
                             performanceMetric.innerHTML = 
-                                `<span>
-                                    ${successRate}% de sucesso
-                                </span>`;
+                                `<span style="color: #28a745">${successRate}% de sucesso</span>`;
                         }
                     }
                 } catch (error) {
                     console.error('Erro ao atualizar estatísticas:', error);
+                    if (homeBalance) homeBalance.textContent = 'Erro ao carregar';
+                    if (performanceMetric) performanceMetric.textContent = 'Erro na análise';
                 }
             }
 
+            // Update stats every 30 seconds if user is authenticated
             setInterval(() => {
-                if (window.currentUser) {
+                const token = localStorage.getItem('deriv_token');
+                const loginid = localStorage.getItem('deriv_loginid');
+                if (token && loginid) {
                     updateHomeStats();
                 }
             }, 30000);

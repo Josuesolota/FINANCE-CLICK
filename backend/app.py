@@ -1,5 +1,5 @@
 # app.py - FinanceClick Backend with Accumulator Options AI Robot
-# VERSÃO FINAL CORRIGIDA - SISTEMA DE AUTENTICAÇÃO PERSISTENTE
+# VERSÃO CORRIGIDA - FLUXO OAUTH CORRETO
 import os
 import json
 import asyncio
@@ -22,10 +22,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, validator
 import secrets
 
-# Deriv API import - CORREÇÃO CRÍTICA
+# Deriv API import
 from deriv_api import DerivAPI
 
-# ==================== CONFIGURAÇÃO CORRIGIDA PARA RENDER ====================
+# ==================== CONFIGURAÇÃO ====================
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_PATH = os.path.join(PROJECT_ROOT, "frontend")
@@ -33,14 +33,6 @@ FRONTEND_PATH = os.path.join(PROJECT_ROOT, "frontend")
 print(f"🚀 Iniciando FinanceClick no Render")
 print(f"📁 Project root: {PROJECT_ROOT}")
 print(f"📁 Frontend path: {FRONTEND_PATH}")
-
-# Verificar se a pasta frontend existe
-if os.path.exists(FRONTEND_PATH):
-    print("✅ Pasta frontend encontrada!")
-else:
-    print("❌ ERRO: Pasta frontend não encontrada!")
-
-# ==================== FIM DA CONFIGURAÇÃO ====================
 
 # Configure logging
 logging.basicConfig(
@@ -53,7 +45,7 @@ logger = logging.getLogger("financeclick")
 # Load environment variables
 load_dotenv()
 
-# --- CONFIGURAÇÃO RENDER ---
+# Configuração Render
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 DERIV_APP_ID = os.getenv("DERIV_APP_ID", "1089")
 DERIV_REDIRECT_URL = os.getenv("DERIV_REDIRECT_URL", "https://finance-click.onrender.com/auth/callback")
@@ -118,7 +110,7 @@ def cache(expire: int = 60):
         return wrapper
     return decorator
 
-# CORREÇÃO: Serviço Deriv API real
+# Serviço Deriv API
 class DerivAPIService:
     def __init__(self):
         self.api = None
@@ -135,7 +127,6 @@ class DerivAPIService:
             self.connected = False
 
     async def authorize(self, token: str) -> Optional[Dict]:
-        """Autentica usuário na Deriv"""
         if not self.connected:
             return None
         try:
@@ -146,7 +137,6 @@ class DerivAPIService:
             return None
 
     async def get_balance(self, token: str) -> Optional[float]:
-        """Obtém saldo real da conta"""
         try:
             auth_data = await self.authorize(token)
             if auth_data and 'authorize' in auth_data:
@@ -156,15 +146,12 @@ class DerivAPIService:
         return None
 
     async def buy_accumulator(self, token: str, buy_params: Dict) -> Optional[Dict]:
-        """Compra real de Accumulator"""
         if not self.connected:
             return None
             
         try:
-            # Primeiro autentica
             await self.authorize(token)
             
-            # Faz proposta
             proposal = await self.api.proposal({
                 "proposal": 1,
                 "contract_type": "ACCUMULATOR",
@@ -177,7 +164,6 @@ class DerivAPIService:
             })
             
             if proposal and 'proposal' in proposal:
-                # Executa compra
                 buy_result = await self.api.buy({
                     "buy": proposal['proposal']['id'],
                     "price": str(buy_params['amount'])
@@ -190,7 +176,6 @@ class DerivAPIService:
         return None
 
     async def get_portfolio(self, token: str) -> Optional[Dict]:
-        """Obtém portfolio real"""
         try:
             await self.authorize(token)
             portfolio = await self.api.portfolio()
@@ -199,7 +184,7 @@ class DerivAPIService:
             logger.error(f"Erro ao obter portfolio: {e}")
             return None
 
-# CORREÇÃO: Carregar modelos de forma robusta
+# Carregar modelos
 def load_models():
     global RISK_MODEL, KNOWLEDGE_BASE
     
@@ -214,7 +199,6 @@ def load_models():
         RISK_MODEL = None
         logger.warning(f"risk_model.pkl não carregado: {e}")
 
-    # Knowledge base
     knowledge_path = os.path.join(FRONTEND_PATH, 'knowledge_base.json')
     try:
         if os.path.exists(knowledge_path):
@@ -228,12 +212,11 @@ def load_models():
 
 load_models()
 
-# --- LIFESPAN MANAGER CORRIGIDO ---
+# Lifespan manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global deriv_service
     
-    # Inicializar serviço Deriv
     deriv_service = DerivAPIService()
     await deriv_service.connect()
     
@@ -241,7 +224,6 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    # Cleanup
     if deriv_service and deriv_service.connected:
         await deriv_service.api.close()
         logger.info("🔌 Deriv API desconectada")
@@ -249,13 +231,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="FinanceClick AI Trading Platform",
     description="Backend with Accumulator Options AI Robot",
-    version="2.4.0",  # Atualizado para nova versão
+    version="2.5.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
-# --- MIDDLEWARE ---
+# Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -279,7 +261,6 @@ async def serve_page(page_name: str):
     if os.path.exists(page_path) and os.path.isfile(page_path):
         return FileResponse(page_path)
     
-    # Fallback para SPA
     index_path = os.path.join(FRONTEND_PATH, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
@@ -293,7 +274,7 @@ async def serve_static(file_path: str):
         return FileResponse(static_path)
     raise HTTPException(status_code=404, detail="Arquivo não encontrado")
 
-# --- MODELOS PYDANTIC ---
+# Modelos Pydantic
 class AuthRequest(BaseModel):
     token: str
 
@@ -327,21 +308,17 @@ class ContactRequest(BaseModel):
     subject: str
     message: str
 
-# ✅ CORREÇÃO CRÍTICA: Função get_current_user corrigida
+# Autenticação
 def get_current_user(request: Request):
-    # Obter token do header Authorization
     auth_header = request.headers.get("Authorization")
     loginid_header = request.headers.get("X-LoginID")
-    
-    logger.debug(f"🔐 Validando autenticação - LoginID: {loginid_header}, Auth Header: {auth_header is not None}")
     
     if not auth_header or not auth_header.startswith("Bearer "):
         logger.warning("❌ Token não fornecido ou formato inválido")
         raise HTTPException(status_code=401, detail="Token não fornecido")
     
-    token = auth_header[7:]  # Remove "Bearer "
+    token = auth_header[7:]
     
-    # Validar token específico do usuário
     if not loginid_header:
         logger.warning("❌ LoginID não fornecido")
         raise HTTPException(status_code=401, detail="LoginID não fornecido")
@@ -354,20 +331,16 @@ def get_current_user(request: Request):
         logger.warning(f"❌ Token inválido para usuário: {loginid_header}")
         raise HTTPException(status_code=401, detail="Token inválido")
     
-    # Atualizar atividade da sessão
     session_key = f"session_{loginid_header}"
     if session_key in user_sessions:
         user_sessions[session_key]['last_activity'] = datetime.now().timestamp()
     else:
-        # Recriar sessão se não existir (após restart do Render)
         user_sessions[session_key] = {
             'loginid': loginid_header,
             'created_at': datetime.now().timestamp(),
             'last_activity': datetime.now().timestamp()
         }
         logger.info(f"✅ Sessão recriada para: {loginid_header}")
-    
-    logger.debug(f"✅ Autenticação válida para: {loginid_header}")
     
     return {
         "loginid": loginid_header,
@@ -394,9 +367,9 @@ class RateLimiter:
 
 rate_limiter = RateLimiter()
 
-# ==================== ENDPOINTS DA API CORRIGIDOS ====================
+# ==================== ENDPOINTS PRINCIPAIS ====================
 
-# --- AUTENTICAÇÃO ---
+# --- AUTENTICAÇÃO CORRIGIDA ---
 @app.get("/auth/login")
 async def login_with_deriv():
     import urllib.parse
@@ -414,15 +387,18 @@ async def login_with_deriv():
     auth_url = f"https://oauth.deriv.com/oauth2/authorize?{params}"
     return RedirectResponse(auth_url)
 
+# ✅ CORREÇÃO CRÍTICA: Callback redireciona para página inicial
 @app.get("/auth/callback")
 async def handle_oauth_callback(request: Request):
     try:
         query_params = dict(request.query_params)
-        logger.info(f"📥 OAuth callback recebido")
+        logger.info(f"📥 OAuth callback recebido - Processando tokens")
         
         if "error" in query_params:
             error_msg = query_params.get("error", "Erro desconhecido")
-            raise HTTPException(status_code=400, detail=f"Erro de autenticação: {error_msg}")
+            logger.error(f"❌ Erro no OAuth callback: {error_msg}")
+            # Redireciona para a página inicial com parâmetro de erro
+            return RedirectResponse(url="/?auth_error=1", status_code=302)
         
         accounts = []
         i = 1
@@ -439,7 +415,7 @@ async def handle_oauth_callback(request: Request):
                 }
                 accounts.append(account_info)
                 
-                # ✅ CORREÇÃO: Armazenar token e sessão
+                # Armazenar token e sessão
                 active_tokens[loginid] = token
                 session_key = f"session_{loginid}"
                 user_sessions[session_key] = {
@@ -448,24 +424,24 @@ async def handle_oauth_callback(request: Request):
                     'last_activity': datetime.now().timestamp()
                 }
                 
-                logger.info(f"✅ Usuário autenticado: {loginid}")
+                logger.info(f"✅ Usuário autenticado: {loginid} - Token armazenado")
             i += 1
         
         if not accounts:
-            raise HTTPException(status_code=400, detail="No accounts received")
+            logger.error("❌ Nenhuma conta recebida no callback OAuth")
+            return RedirectResponse(url="/?auth_error=2", status_code=302)
         
-        return RedirectResponse(url="/dashboard", status_code=302)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Erro no callback OAuth: {e}")
+        # ✅ CORREÇÃO: Redirecionar para página inicial em vez do dashboard
+        # O frontend (script.js) irá processar os tokens e redirecionar para o dashboard
+        logger.info("✅ Autenticação bem-sucedida - Redirecionando para página inicial")
         return RedirectResponse(url="/", status_code=302)
+        
+    except Exception as e:
+        logger.error(f"❌ Erro crítico no callback OAuth: {e}")
+        return RedirectResponse(url="/?auth_error=3", status_code=302)
 
-# ✅ NOVO ENDPOINT: Restaurar sessão a partir do localStorage
 @app.post("/api/auth/refresh")
 async def refresh_session(request: Request):
-    """Restaura sessão a partir do localStorage do frontend"""
     try:
         auth_header = request.headers.get("Authorization")
         loginid_header = request.headers.get("X-LoginID")
@@ -477,7 +453,6 @@ async def refresh_session(request: Request):
         
         token = auth_header[7:]
         
-        # Restaurar sessão no backend
         if loginid_header and token:
             active_tokens[loginid_header] = token
             session_key = f"session_{loginid_header}"
@@ -505,7 +480,6 @@ async def refresh_session(request: Request):
 @app.post("/auth/logout")
 async def logout_user(request: Request):
     try:
-        # ✅ CORREÇÃO: Usar a mesma lógica de autenticação por headers
         auth_header = request.headers.get("Authorization")
         loginid_header = request.headers.get("X-LoginID")
         
@@ -517,7 +491,6 @@ async def logout_user(request: Request):
         if not loginid_header or loginid_header not in active_tokens:
             raise HTTPException(status_code=401, detail="Usuário não autenticado")
         
-        # Remover sessão
         if loginid_header in active_tokens:
             del active_tokens[loginid_header]
         session_key = f"session_{loginid_header}"
@@ -535,7 +508,6 @@ async def logout_user(request: Request):
 
 @app.get("/api/me")
 async def get_current_user_info(user: dict = Depends(get_current_user)):
-    print(f"Fornecido info do usuário: {user['loginid']}")
     return {
         "authenticated": True,
         "loginid": user['loginid'],
@@ -543,11 +515,10 @@ async def get_current_user_info(user: dict = Depends(get_current_user)):
         "account_type": "demo" if user['loginid'].startswith("VRTC") else "real"
     }
 
-# --- DERIV API REAL ---
+# --- ENDPOINTS DA API ---
 @app.get("/api/balance")
 async def get_account_balance(user: dict = Depends(get_current_user)):
     try:
-        # Tenta obter saldo real
         if deriv_service and deriv_service.connected:
             real_balance = await deriv_service.get_balance(user['token'])
             if real_balance is not None:
@@ -559,7 +530,6 @@ async def get_account_balance(user: dict = Depends(get_current_user)):
                     }
                 }
         
-        # Fallback para saldo simulado
         simulated_balance = 1000.00
         return {
             "balance": {
@@ -585,7 +555,6 @@ async def get_accumulator_symbols():
     ]
     return {"accumulator_symbols": accumulator_symbols}
 
-# ✅ CORREÇÃO: Melhorar resposta da compra para frontend definitivo
 @app.post("/api/accumulators/buy")
 async def buy_accumulator_contract(
     buy_request: AccumulatorBuyRequest, 
@@ -595,7 +564,6 @@ async def buy_accumulator_contract(
         if await rate_limiter.is_rate_limited(f"buy_{user['loginid']}", 10, 60):
             raise HTTPException(status_code=429, detail="Too many trade attempts")
         
-        # Tenta compra real
         if deriv_service and deriv_service.connected:
             buy_params = {
                 'symbol': buy_request.symbol,
@@ -606,13 +574,11 @@ async def buy_accumulator_contract(
             if real_buy:
                 return {"buy": real_buy}
         
-        # Fallback para compra simulada - ✅ MELHORADO para frontend definitivo
         import random
         contract_id = f"ACCU_{int(datetime.now().timestamp())}_{user['loginid']}"
         is_success = random.random() > 0.3
         profit_loss = buy_request.amount * buy_request.growth_rate * random.randint(5, 20) if is_success else -buy_request.amount
         
-        # ✅ ESTRUTURA COMPATÍVEL COM FRONTEND DEFINITIVO
         return {
             "buy": {
                 "contract_id": contract_id,
@@ -631,7 +597,6 @@ async def buy_accumulator_contract(
         logger.error(f"Accumulator buy error: {e}")
         raise HTTPException(status_code=500, detail=f"Accumulator buy failed: {str(e)}")
 
-# ✅ CORREÇÃO: Melhorar proposta para frontend definitivo
 @app.post("/api/accumulators/proposal")
 @cache(expire=30)
 async def get_accumulator_proposal(buy_request: AccumulatorBuyRequest):
@@ -639,7 +604,6 @@ async def get_accumulator_proposal(buy_request: AccumulatorBuyRequest):
     potential_payout = buy_request.amount * (1 + buy_request.growth_rate * random.randint(8, 15))
     potential_return = potential_payout - buy_request.amount
     
-    # ✅ ESTRUTURA MELHORADA para frontend definitivo
     return {
         "proposal": {
             "display_value": f"{potential_payout:.2f}",
@@ -669,7 +633,6 @@ async def run_ai_robot(config: RobotConfig, loginid: str):
         robot_active = False
         logger.info(f"🤖 Robô AI parado")
 
-# ✅ CORREÇÃO: Melhorar resposta do robô AI
 @app.post("/api/robot/toggle")
 async def toggle_robot(config: RobotConfig, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
     global robot_active
@@ -678,14 +641,13 @@ async def toggle_robot(config: RobotConfig, background_tasks: BackgroundTasks, u
         robot_active = True
         background_tasks.add_task(run_ai_robot, config, user['loginid'])
         
-        # ✅ ADICIONADO: Incluir análise de mercado na resposta
         market_analysis = await get_market_analysis("1HZ100V", config.strategy)
         
         return {
             "status": "running",
             "message": f"Robô AI ativado com estratégia {config.strategy}",
             "config": config.dict(),
-            "analysis": market_analysis  # ✅ Frontend definitivo espera este campo
+            "analysis": market_analysis
         }
     else:
         robot_active = False
@@ -698,7 +660,7 @@ async def toggle_robot(config: RobotConfig, background_tasks: BackgroundTasks, u
 async def get_robot_status():
     return {"active": robot_active, "message": "Robô ativo" if robot_active else "Robô inativo"}
 
-# --- CONTATO E CHATBOT ---
+# --- OUTROS ENDPOINTS ---
 @app.post("/api/contact")
 async def submit_contact_form(contact_data: ContactRequest, request: Request):
     try:
@@ -741,23 +703,17 @@ async def chatbot_ask(query_data: ChatQuery, request: Request):
         "response": "Desculpe, sou especializado em Accumulator Options. Posso ajudar com: conexão Deriv, robô AI, estratégias, símbolos disponíveis, gestão de risco."
     }
 
-# ==================== NOVOS ENDPOINTS PARA FRONTEND DEFINITIVO ====================
-
-# ✅ NOVO: Endpoint de análise de mercado
+# --- ENDPOINTS ADICIONAIS ---
 @app.get("/api/market/analysis")
 @cache(expire=120)
 async def get_market_analysis(symbol: str = "1HZ100V", strategy: str = "moderate"):
-    """
-    Fornece análise de mercado para o frontend definitivo
-    """
     try:
-        # Análise baseada no símbolo e estratégia
         volatility_scores = {
-            "1HZ10V": 0.3,   # Baixa volatilidade
-            "1HZ25V": 0.5,   # Volatilidade média-baixa
-            "1HZ50V": 0.7,   # Volatilidade média
-            "1HZ75V": 0.8,   # Volatilidade alta
-            "1HZ100V": 0.9   # Volatilidade muito alta
+            "1HZ10V": 0.3,
+            "1HZ25V": 0.5,
+            "1HZ50V": 0.7,
+            "1HZ75V": 0.8,
+            "1HZ100V": 0.9
         }
         
         strategy_impact = {
@@ -784,125 +740,6 @@ async def get_market_analysis(symbol: str = "1HZ100V", strategy: str = "moderate
         logger.error(f"Erro na análise de mercado: {e}")
         raise HTTPException(status_code=500, detail="Erro na análise de mercado")
 
-# ✅ NOVO: Endpoint de histórico de trades
-@app.get("/api/accumulators/history")
-@cache(expire=60)
-async def get_accumulator_history(
-    period: str = "7days",
-    symbol: str = "all", 
-    result: str = "all",
-    user: dict = Depends(get_current_user)
-):
-    """
-    Fornece histórico de trades para o frontend definitivo
-    """
-    try:
-        # Dados de exemplo - em produção, buscar do banco de dados
-        base_trades = [
-            {
-                "id": "ACCU_123456789",
-                "symbol": "1HZ100V",
-                "type": "ACCUMULATOR",
-                "growth_rate": 0.02,
-                "amount": 10.0,
-                "result": 8.95,
-                "ticks": 12,
-                "timestamp": (datetime.now() - timedelta(hours=2)).isoformat(),
-                "status": "win"
-            },
-            {
-                "id": "ACCU_123456788", 
-                "symbol": "1HZ75V",
-                "type": "ACCUMULATOR",
-                "growth_rate": 0.05,
-                "amount": 15.0,
-                "result": -15.0,
-                "ticks": 3,
-                "timestamp": (datetime.now() - timedelta(days=1)).isoformat(),
-                "status": "loss"
-            },
-            {
-                "id": "ACCU_123456787",
-                "symbol": "1HZ50V",
-                "type": "ACCUMULATOR", 
-                "growth_rate": 0.03,
-                "amount": 8.0,
-                "result": 12.35,
-                "ticks": 18,
-                "timestamp": (datetime.now() - timedelta(days=2)).isoformat(),
-                "status": "win"
-            }
-        ]
-        
-        # Filtrar trades baseado nos parâmetros
-        filtered_trades = []
-        for trade in base_trades:
-            if symbol != "all" and trade["symbol"] != symbol:
-                continue
-            if result != "all" and trade["status"] != result:
-                continue
-            filtered_trades.append(trade)
-        
-        # Calcular estatísticas
-        total_trades = len(filtered_trades)
-        winning_trades = len([t for t in filtered_trades if t["status"] == "win"])
-        losing_trades = len([t for t in filtered_trades if t["status"] == "loss"])
-        win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
-        total_profit = sum(trade["result"] for trade in filtered_trades)
-        avg_profit = total_profit / total_trades if total_trades > 0 else 0
-        
-        return {
-            "trades": filtered_trades,
-            "stats": {
-                "total_trades": total_trades,
-                "winning_trades": winning_trades,
-                "losing_trades": losing_trades,
-                "win_rate": round(win_rate, 2),
-                "total_profit": round(total_profit, 2),
-                "average_profit": round(avg_profit, 2),
-                "period": period,
-                "symbol": symbol
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"Erro ao carregar histórico: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao carregar histórico")
-
-# ✅ NOVO: Endpoint para dados do dashboard
-@app.get("/api/dashboard/data")
-async def get_dashboard_data(user: dict = Depends(get_current_user)):
-    """
-    Fornece todos os dados necessários para o dashboard do frontend definitivo
-    """
-    try:
-        # Obter saldo
-        balance_response = await get_account_balance(user)
-        balance_data = balance_response if isinstance(balance_response, dict) else await balance_response.json()
-        
-        # Obter status do robô
-        robot_status = await get_robot_status()
-        
-        # Obter análise de mercado
-        market_analysis = await get_market_analysis("1HZ100V", "moderate")
-        
-        # Obter histórico recente
-        recent_history = await get_accumulator_history("1day", "all", "all", user)
-        
-        return {
-            "balance": balance_data.get("balance", {}),
-            "robot_status": robot_status,
-            "market_analysis": market_analysis,
-            "recent_trades": recent_history.get("trades", [])[:5],  # Últimos 5 trades
-            "quick_stats": recent_history.get("stats", {}),
-            "last_updated": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        logger.error(f"Erro ao carregar dados do dashboard: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao carregar dados do dashboard")
-# --- HEALTH CHECK ---
-# ✅ CORREÇÃO: Health check mais detalhado
 @app.get("/api/health")
 async def health_check():
     return {
@@ -914,25 +751,9 @@ async def health_check():
         "active_users": len(active_tokens),
         "user_sessions": len(user_sessions),
         "environment": ENVIRONMENT,
-        "version": "2.5.0",  # Atualizado
-        "endpoints_available": [
-            "/api/me",
-            "/api/balance", 
-            "/api/symbols/accumulators",
-            "/api/accumulators/buy",
-            "/api/accumulators/proposal",
-            "/api/accumulators/history",
-            "/api/market/analysis",
-            "/api/robot/toggle",
-            "/api/robot/status",
-            "/api/dashboard/data",
-            "/api/auth/refresh",
-            "/api/chatbot/ask",
-            "/api/contact"
-        ]
+        "version": "2.5.0"
     }
 
-# --- PRODUCTION INITIALIZATION ---
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=PORT)
