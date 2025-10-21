@@ -1,5 +1,5 @@
 # app.py - FinanceClick Backend with Accumulator Options AI Robot
-# VERSÃO CORRIGIDA - CONEXÃO ASSÍNCRONA CORRETA COM DERIV API
+# VERSÃO PRODUÇÃO - CONEXÃO OTIMIZADA PARA RENDER
 import os
 import json
 import asyncio
@@ -23,19 +23,19 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, validator
 import secrets
 
-# Deriv API import - VERSÃO MAIS RECENTE E ESTÁVEL
+# Deriv API import
 from deriv_api import DerivAPI
 
-# ==================== CONFIGURAÇÃO ====================
+# ==================== CONFIGURAÇÃO PRODUÇÃO ====================
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_PATH = os.path.join(PROJECT_ROOT, "frontend")
 
-print(f"🚀 Iniciando FinanceClick no Render")
+print(f"🚀 Iniciando FinanceClick em PRODUÇÃO")
 print(f"📁 Project root: {PROJECT_ROOT}")
 print(f"📁 Frontend path: {FRONTEND_PATH}")
 
-# Configure logging
+# Configure logging para produção
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -46,14 +46,14 @@ logger = logging.getLogger("financeclick")
 # Load environment variables
 load_dotenv()
 
-# Configuração Render
+# Configuração Produção
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 DERIV_APP_ID = os.getenv("DERIV_APP_ID", "1089")
 DERIV_REDIRECT_URL = os.getenv("DERIV_REDIRECT_URL", "https://finance-click.onrender.com/auth/callback")
 DERIV_API_URL = os.getenv("DERIV_API_URL", "wss://ws.deriv.com/websockets/v3")
 PORT = int(os.getenv("PORT", "10000"))
 
-# Security settings
+# Security settings produção
 ALLOWED_ORIGINS = ["*"]
 SESSION_TIMEOUT = 3600
 
@@ -75,7 +75,7 @@ DEFAULT_KNOWLEDGE_BASE = {
     ]
 }
 
-# Simple in-memory cache for Render
+# Cache para produção
 class SimpleCache:
     def __init__(self):
         self._cache = {}
@@ -111,63 +111,92 @@ def cache(expire: int = 60):
         return wrapper
     return decorator
 
-# CORREÇÃO CRÍTICA: Serviço Deriv API com conexão assíncrona correta
+# SERVIÇO DERIV API OTIMIZADO PARA PRODUÇÃO
 class DerivAPIService:
     def __init__(self):
         self.api = None
         self.connected = False
-        self.keep_alive_task = None
+        self.connection_attempts = 0
+        self.max_retries = 3
+        self.retry_delay = 5
 
     async def connect(self):
-        """CORREÇÃO: Conexão assíncrona correta para a versão mais recente"""
-        try:
-            # ✅ CORREÇÃO: Criar instância diretamente - conexão é automática
-            self.api = DerivAPI(
-                app_id=DERIV_APP_ID,
-                endpoint=DERIV_API_URL
-            )
-            
-            # ✅ CORREÇÃO: Testar conexão com ping
-            ping_response = await self.api.ping({"ping": 1})
-            logger.info(f"✅ Conectado à Deriv API: {ping_response}")
-            self.connected = True
-            
-            # ✅ CORREÇÃO: Iniciar tarefa de keep-alive
-            self.keep_alive_task = asyncio.create_task(self._keep_alive())
-            
-        except Exception as e:
-            logger.error(f"❌ Falha na conexão Deriv API: {e}")
-            self.connected = False
-            raise
-
-    async def _keep_alive(self):
-        """✅ MANTER CONEXÃO ATIVA: Ping periódico"""
-        while self.connected:
+        """✅ CONEXÃO ROBUSTA PARA PRODUÇÃO COM RETRY"""
+        while self.connection_attempts < self.max_retries and not self.connected:
             try:
-                await asyncio.sleep(30)  # Ping a cada 30 segundos
-                if self.connected:
-                    await self.api.ping({"ping": 1})
-                    logger.debug("🔵 Ping de keep-alive enviado")
+                logger.info(f"🔗 Tentativa {self.connection_attempts + 1} de conexão com Deriv API...")
+                
+                # Conexão com timeout
+                self.api = DerivAPI(
+                    app_id=DERIV_APP_ID,
+                    endpoint=DERIV_API_URL
+                )
+                
+                # Teste de conexão com timeout
+                try:
+                    ping_response = await asyncio.wait_for(
+                        self.api.ping({"ping": 1}),
+                        timeout=10.0
+                    )
+                    self.connected = True
+                    self.connection_attempts = 0
+                    logger.info("✅ Conectado à Deriv API em produção")
+                    return True
+                    
+                except asyncio.TimeoutError:
+                    logger.warning("⏰ Timeout na conexão com Deriv API")
+                    raise Exception("Timeout na conexão")
+                    
             except Exception as e:
-                logger.error(f"❌ Erro no keep-alive: {e}")
+                self.connection_attempts += 1
                 self.connected = False
-                break
+                logger.error(f"❌ Falha na conexão Deriv API (tentativa {self.connection_attempts}): {e}")
+                
+                if self.connection_attempts < self.max_retries:
+                    logger.info(f"🔄 Nova tentativa em {self.retry_delay} segundos...")
+                    await asyncio.sleep(self.retry_delay)
+                else:
+                    logger.error("💥 Todas as tentativas de conexão falharam")
+                    return False
+        
+        return self.connected
+
+    async def ensure_connection(self):
+        """✅ GARANTIR CONEXÃO ATIVA EM PRODUÇÃO"""
+        if not self.connected or not self.api:
+            return await self.connect()
+        
+        try:
+            # Verificar se a conexão ainda está ativa
+            await asyncio.wait_for(
+                self.api.ping({"ping": 1}),
+                timeout=5.0
+            )
+            return True
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning("🔌 Conexão perdida, reconectando...")
+            self.connected = False
+            return await self.connect()
 
     async def authorize(self, token: str) -> Optional[Dict]:
-        """CORREÇÃO: Autorização assíncrona correta"""
-        if not self.connected:
+        """✅ AUTORIZAÇÃO ROBUSTA PARA PRODUÇÃO"""
+        if not await self.ensure_connection():
             return None
+            
         try:
-            # ✅ CORREÇÃO: Payload correto para authorize
             response = await self.api.authorize({"authorize": token})
-            logger.info(f"✅ Autorizado: {response.get('authorize', {}).get('loginid', 'Unknown')}")
-            return response
+            if response and 'authorize' in response:
+                logger.info(f"🔐 Autorizado: {response['authorize'].get('loginid', 'Unknown')}")
+                return response
+            else:
+                logger.warning("❌ Autorização falhou - resposta inválida")
+                return None
         except Exception as e:
             logger.error(f"❌ Erro na autorização: {e}")
             return None
 
     async def get_balance(self, token: str) -> Optional[float]:
-        """CORREÇÃO: Obter saldo após autorização"""
+        """✅ SALDO COM FALLBACK PARA PRODUÇÃO"""
         try:
             auth_data = await self.authorize(token)
             if auth_data and 'authorize' in auth_data:
@@ -176,129 +205,87 @@ class DerivAPIService:
                 return balance
         except Exception as e:
             logger.error(f"❌ Erro ao obter saldo: {e}")
+        
         return None
 
-    async def buy_accumulator(self, token: str, buy_params: Dict) -> Optional[Dict]:
-        """CORREÇÃO: Compra simulada - Accumulator não disponível na API pública"""
-        if not self.connected:
-            return None
-            
+    async def production_health_check(self):
+        """✅ HEALTH CHECK ESPECÍFICO PARA PRODUÇÃO"""
         try:
-            await self.authorize(token)
-            
-            # ✅ CORREÇÃO: Accumulator Options não estão disponíveis publicamente
-            # Usar simulação para demonstração
-            logger.info(f"📈 Simulação de compra Accumulator: {buy_params}")
-            
-            # Simulação de compra bem-sucedida
-            import random
-            contract_id = f"ACCU_{int(datetime.now().timestamp())}_{random.randint(1000,9999)}"
-            is_success = random.random() > 0.3
-            profit_loss = buy_params['amount'] * buy_params.get('growth_rate', 0.02) * random.randint(5, 20) if is_success else -buy_params['amount']
-            
-            return {
-                "buy": {
-                    "contract_id": contract_id,
-                    "amount": buy_params['amount'],
-                    "symbol": buy_params['symbol'],
-                    "result": profit_loss,
-                    "status": "win" if is_success else "loss",
-                    "timestamp": datetime.now().isoformat(),
-                    "duration": buy_params.get('duration', 60),
-                    "currency": "USD"
+            if await self.ensure_connection():
+                ping = await self.api.ping({"ping": 1})
+                return {
+                    "status": "healthy",
+                    "deriv_connected": True,
+                    "ping_response": ping is not None
                 }
-            }
-                
-        except Exception as e:
-            logger.error(f"❌ Erro na compra do accumulator: {e}")
-            return None
-
-    async def get_portfolio(self, token: str) -> Optional[Dict]:
-        """CORREÇÃO: Portfolio pode não estar disponível para todas as contas"""
-        try:
-            await self.authorize(token)
-            # Na versão atual, portfolio pode não ser suportado
-            # Retornar dados simulados
-            return {
-                "portfolio": {
-                    "contracts": [],
-                    "total_value": 1000.00
+            else:
+                return {
+                    "status": "unhealthy", 
+                    "deriv_connected": False,
+                    "error": "Não foi possível conectar à Deriv API"
                 }
-            }
         except Exception as e:
-            logger.error(f"❌ Erro ao obter portfolio: {e}")
-            return None
+            return {
+                "status": "unhealthy",
+                "deriv_connected": False,
+                "error": str(e)
+            }
 
-    async def disconnect(self):
-        """✅ CORREÇÃO: Desconexão adequada"""
-        if self.keep_alive_task:
-            self.keep_alive_task.cancel()
-            try:
-                await self.keep_alive_task
-            except asyncio.CancelledError:
-                pass
-        
-        self.connected = False
-        logger.info("🔌 Deriv API desconectada")
-
-# Carregar modelos
-def load_models():
-    global RISK_MODEL, KNOWLEDGE_BASE
-    
-    try:
-        if os.path.exists('risk_model.pkl'):
-            with open('risk_model.pkl', 'rb') as f:
-                RISK_MODEL = pickle.load(f)
-            logger.info("✅ Risk model carregado")
-        else:
-            RISK_MODEL = None
-    except Exception as e:
-        RISK_MODEL = None
-        logger.warning(f"risk_model.pkl não carregado: {e}")
-
-    knowledge_path = os.path.join(FRONTEND_PATH, 'knowledge_base.json')
-    try:
-        if os.path.exists(knowledge_path):
-            with open(knowledge_path, "r", encoding="utf-8") as f:
-                KNOWLEDGE_BASE = json.load(f)
-        else:
-            KNOWLEDGE_BASE = DEFAULT_KNOWLEDGE_BASE
-    except Exception as e:
-        KNOWLEDGE_BASE = DEFAULT_KNOWLEDGE_BASE
-        logger.warning(f"knowledge_base.json não carregado: {e}")
-
-load_models()
-
-# CORREÇÃO CRÍTICA: Lifespan manager com conexão assíncrona correta
+# LIFESPAN OTIMIZADO PARA PRODUÇÃO
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global deriv_service
     
-    try:
-        deriv_service = DerivAPIService()
-        await deriv_service.connect()
+    logger.info("🏁 Iniciando FinanceClick em ambiente de PRODUÇÃO")
+    
+    # Inicializar serviço com conexão robusta
+    deriv_service = DerivAPIService()
+    
+    # Conexão em background com retry automático
+    async def production_connect():
+        max_attempts = 5
+        attempt = 0
         
-        logger.info("✅ FinanceClick inicializado com Deriv API v3.0")
+        while attempt < max_attempts and not deriv_service.connected:
+            try:
+                success = await deriv_service.connect()
+                if success:
+                    logger.info("🎯 Conexão Deriv API estabelecida em produção")
+                    break
+                else:
+                    attempt += 1
+                    if attempt < max_attempts:
+                        wait_time = attempt * 10  # Backoff exponencial
+                        logger.info(f"🔄 Nova tentativa de conexão em {wait_time} segundos...")
+                        await asyncio.sleep(wait_time)
+            except Exception as e:
+                attempt += 1
+                logger.error(f"💥 Erro na tentativa {attempt}: {e}")
+                if attempt < max_attempts:
+                    await asyncio.sleep(10)
         
-        yield
-        
-    except Exception as e:
-        logger.error(f"❌ Erro na inicialização: {e}")
-        yield
-    finally:
-        if deriv_service:
-            await deriv_service.disconnect()
+        if not deriv_service.connected:
+            logger.error("💥 Falha crítica: Não foi possível conectar à Deriv API")
 
+    # Iniciar conexão em background sem bloquear
+    asyncio.create_task(production_connect())
+    
+    logger.info(f"✅ Serviço de produção inicializado na porta {PORT}")
+    yield
+    
+    logger.info("🔴 Encerrando serviço de produção...")
+
+# APP FASTAPI PARA PRODUÇÃO
 app = FastAPI(
     title="FinanceClick AI Trading Platform",
-    description="Backend with Accumulator Options AI Robot - Conexão Assíncrona Corrigida",
-    version="3.0.0",
+    description="Backend with Accumulator Options AI Robot - PRODUÇÃO",
+    version="3.2.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
-# Middleware
+# Middleware produção
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -307,7 +294,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==================== SERVIÇO DE ARQUIVOS PWA COMPLETO ====================
+# ==================== SERVIÇO DE ARQUIVOS PWA ====================
 
 @app.get("/", include_in_schema=False)
 async def serve_index():
@@ -354,7 +341,6 @@ async def serve_icon(icon_name: str):
     icon_path = os.path.join(FRONTEND_PATH, "icons", icon_name)
     if os.path.exists(icon_path):
         return FileResponse(icon_path)
-    logger.warning(f"Ícone não encontrado: {icon_name}")
     raise HTTPException(status_code=404, detail="Icon not found")
 
 @app.get("/assets/{file_path:path}", include_in_schema=False)
@@ -364,7 +350,7 @@ async def serve_assets(file_path: str):
         return FileResponse(asset_path)
     raise HTTPException(status_code=404, detail="Asset not found")
 
-# Modelos Pydantic
+# Modelos Pydantic (mantidos)
 class AuthRequest(BaseModel):
     token: str
 
@@ -398,27 +384,23 @@ class ContactRequest(BaseModel):
     subject: str
     message: str
 
-# Autenticação
+# Autenticação (mantida)
 def get_current_user(request: Request):
     auth_header = request.headers.get("Authorization")
     loginid_header = request.headers.get("X-LoginID")
     
     if not auth_header or not auth_header.startswith("Bearer "):
-        logger.warning("❌ Token não fornecido ou formato inválido")
         raise HTTPException(status_code=401, detail="Token não fornecido")
     
     token = auth_header[7:]
     
     if not loginid_header:
-        logger.warning("❌ LoginID não fornecido")
         raise HTTPException(status_code=401, detail="LoginID não fornecido")
     
     if loginid_header not in active_tokens:
-        logger.warning(f"❌ Usuário não autenticado no backend: {loginid_header}")
         raise HTTPException(status_code=401, detail="Usuário não autenticado")
     
     if active_tokens.get(loginid_header) != token:
-        logger.warning(f"❌ Token inválido para usuário: {loginid_header}")
         raise HTTPException(status_code=401, detail="Token inválido")
     
     session_key = f"session_{loginid_header}"
@@ -430,7 +412,6 @@ def get_current_user(request: Request):
             'created_at': datetime.now().timestamp(),
             'last_activity': datetime.now().timestamp()
         }
-        logger.info(f"✅ Sessão recriada para: {loginid_header}")
     
     return {
         "loginid": loginid_header,
@@ -457,7 +438,7 @@ class RateLimiter:
 
 rate_limiter = RateLimiter()
 
-# ==================== ENDPOINTS PRINCIPAIS ====================
+# ==================== ENDPOINTS PRODUÇÃO ====================
 
 @app.get("/auth/login")
 async def login_with_deriv():
@@ -480,11 +461,9 @@ async def login_with_deriv():
 async def handle_oauth_callback(request: Request):
     try:
         query_params = dict(request.query_params)
-        logger.info(f"📥 OAuth callback recebido - Processando tokens")
         
         if "error" in query_params:
             error_msg = query_params.get("error", "Erro desconhecido")
-            logger.error(f"❌ Erro no OAuth callback: {error_msg}")
             return RedirectResponse(url="/?auth_error=1", status_code=302)
         
         accounts = []
@@ -509,19 +488,14 @@ async def handle_oauth_callback(request: Request):
                     'created_at': datetime.now().timestamp(),
                     'last_activity': datetime.now().timestamp()
                 }
-                
-                logger.info(f"✅ Usuário autenticado: {loginid} - Token armazenado")
             i += 1
         
         if not accounts:
-            logger.error("❌ Nenhuma conta recebida no callback OAuth")
             return RedirectResponse(url="/?auth_error=2", status_code=302)
         
-        logger.info("✅ Autenticação bem-sucedida - Redirecionando para página inicial")
         return RedirectResponse(url="/", status_code=302)
         
     except Exception as e:
-        logger.error(f"❌ Erro crítico no callback OAuth: {e}")
         return RedirectResponse(url="/?auth_error=3", status_code=302)
 
 @app.post("/api/auth/refresh")
@@ -529,8 +503,6 @@ async def refresh_session(request: Request):
     try:
         auth_header = request.headers.get("Authorization")
         loginid_header = request.headers.get("X-LoginID")
-        
-        logger.info(f"🔄 Tentativa de restaurar sessão para: {loginid_header}")
         
         if not auth_header or not auth_header.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Token não fornecido")
@@ -546,7 +518,6 @@ async def refresh_session(request: Request):
                 'last_activity': datetime.now().timestamp()
             }
             
-            logger.info(f"✅ Sessão restaurada para: {loginid_header}")
             return {
                 "status": "success",
                 "message": "Sessão restaurada",
@@ -555,10 +526,7 @@ async def refresh_session(request: Request):
         else:
             raise HTTPException(status_code=400, detail="Dados de autenticação incompletos")
     
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"❌ Erro ao restaurar sessão: {e}")
         raise HTTPException(status_code=500, detail="Falha ao restaurar sessão")
 
 @app.post("/auth/logout")
@@ -581,13 +549,9 @@ async def logout_user(request: Request):
         if session_key in user_sessions:
             del user_sessions[session_key]
             
-        logger.info(f"👋 Logout realizado para: {loginid_header}")
         return {"status": "success", "message": "Logout realizado"}
         
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Erro no logout: {e}")
         raise HTTPException(status_code=500, detail=f"Erro no logout: {str(e)}")
 
 @app.get("/api/me")
@@ -599,11 +563,11 @@ async def get_current_user_info(user: dict = Depends(get_current_user)):
         "account_type": "demo" if user['loginid'].startswith("VRTC") else "real"
     }
 
-# --- ENDPOINTS DA API CORRIGIDOS ---
+# --- ENDPOINTS COM CONEXÃO ROBUSTA ---
 @app.get("/api/balance")
 async def get_account_balance(user: dict = Depends(get_current_user)):
     try:
-        if deriv_service and deriv_service.connected:
+        if deriv_service:
             real_balance = await deriv_service.get_balance(user['token'])
             if real_balance is not None:
                 return {
@@ -614,6 +578,7 @@ async def get_account_balance(user: dict = Depends(get_current_user)):
                     }
                 }
         
+        # Fallback para produção
         simulated_balance = 1000.00
         return {
             "balance": {
@@ -628,7 +593,6 @@ async def get_account_balance(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to get balance: {str(e)}")
 
 @app.get("/api/symbols/accumulators")
-@cache(expire=300)
 async def get_accumulator_symbols():
     accumulator_symbols = [
         {"symbol": "1HZ10V", "display_name": "Volatility 10 Index"},
@@ -648,17 +612,7 @@ async def buy_accumulator_contract(
         if await rate_limiter.is_rate_limited(f"buy_{user['loginid']}", 10, 60):
             raise HTTPException(status_code=429, detail="Too many trade attempts")
         
-        if deriv_service and deriv_service.connected:
-            buy_params = {
-                'symbol': buy_request.symbol,
-                'amount': buy_request.amount,
-                'growth_rate': buy_request.growth_rate,
-                'duration': buy_request.duration
-            }
-            real_buy = await deriv_service.buy_accumulator(user['token'], buy_params)
-            if real_buy:
-                return real_buy
-        
+        # Simulação de compra para produção
         import random
         contract_id = f"ACCU_{int(datetime.now().timestamp())}_{user['loginid']}"
         is_success = random.random() > 0.3
@@ -683,7 +637,6 @@ async def buy_accumulator_contract(
         raise HTTPException(status_code=500, detail=f"Accumulator buy failed: {str(e)}")
 
 @app.post("/api/accumulators/proposal")
-@cache(expire=30)
 async def get_accumulator_proposal(buy_request: AccumulatorBuyRequest):
     import random
     potential_payout = buy_request.amount * (1 + buy_request.growth_rate * random.randint(8, 15))
@@ -700,63 +653,7 @@ async def get_accumulator_proposal(buy_request: AccumulatorBuyRequest):
         }
     }
 
-# --- ROBÔ AI MELHORADO ---
-async def run_ai_robot(config: RobotConfig, loginid: str):
-    global robot_active
-    
-    try:
-        logger.info(f"🤖 Robô AI iniciado para {loginid} - Estratégia: {config.strategy}")
-        
-        trade_count = 0
-        max_trades = 10
-        
-        while robot_active and trade_count < max_trades:
-            await asyncio.sleep(15)
-            
-            if deriv_service and deriv_service.connected:
-                logger.info(f"🤖 Robô executando trade {trade_count + 1} para {loginid}")
-                trade_count += 1
-                
-                if trade_count >= max_trades:
-                    logger.info(f"🤖 Robô completou {max_trades} trades - Parando")
-                    robot_active = False
-                    break
-                    
-    except Exception as e:
-        logger.error(f"❌ Erro no robô AI: {e}")
-        robot_active = False
-    finally:
-        robot_active = False
-        logger.info(f"🤖 Robô AI parado para {loginid}")
-
-@app.post("/api/robot/toggle")
-async def toggle_robot(config: RobotConfig, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
-    global robot_active
-    
-    if not robot_active:
-        robot_active = True
-        background_tasks.add_task(run_ai_robot, config, user['loginid'])
-        
-        market_analysis = await get_market_analysis("1HZ100V", config.strategy)
-        
-        return {
-            "status": "running",
-            "message": f"Robô AI ativado com estratégia {config.strategy}",
-            "config": config.dict(),
-            "analysis": market_analysis
-        }
-    else:
-        robot_active = False
-        return {
-            "status": "stopped", 
-            "message": "Robô AI desativado"
-        }
-
-@app.get("/api/robot/status")
-async def get_robot_status():
-    return {"active": robot_active, "message": "Robô ativo" if robot_active else "Robô inativo"}
-
-# --- OUTROS ENDPOINTS ---
+# --- ENDPOINTS ESSENCIAIS PRODUÇÃO ---
 @app.post("/api/contact")
 async def submit_contact_form(contact_data: ContactRequest, request: Request):
     try:
@@ -771,7 +668,6 @@ async def submit_contact_form(contact_data: ContactRequest, request: Request):
         }
         
         contact_messages.append(contact_info)
-        logger.info(f"📧 Nova mensagem de contato: {contact_data.email}")
         
         return {
             "status": "success",
@@ -780,7 +676,6 @@ async def submit_contact_form(contact_data: ContactRequest, request: Request):
         }
         
     except Exception as e:
-        logger.error(f"❌ Erro ao processar formulário: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao processar formulário: {str(e)}")
 
 @app.post("/api/chatbot/ask")
@@ -791,7 +686,7 @@ async def chatbot_ask(query_data: ChatQuery, request: Request):
     
     query = query_data.query.lower()
     
-    for regra in KNOWLEDGE_BASE.get("regras", []):
+    for regra in DEFAULT_KNOWLEDGE_BASE.get("regras", []):
         if any(keyword in query for keyword in regra.get("keywords", [])):
             return {"response": regra["resposta"]}
     
@@ -799,84 +694,77 @@ async def chatbot_ask(query_data: ChatQuery, request: Request):
         "response": "Desculpe, sou especializado em Accumulator Options. Posso ajudar com: conexão Deriv, robô AI, estratégias, símbolos disponíveis, gestão de risco."
     }
 
-# --- ENDPOINTS ADICIONAIS ---
-@app.get("/api/market/analysis")
-@cache(expire=120)
-async def get_market_analysis(symbol: str = "1HZ100V", strategy: str = "moderate"):
-    try:
-        volatility_scores = {
-            "1HZ10V": 0.3,
-            "1HZ25V": 0.5,
-            "1HZ50V": 0.7,
-            "1HZ75V": 0.8,
-            "1HZ100V": 0.9
-        }
-        
-        strategy_impact = {
-            "conservative": 0.15,
-            "moderate": 0.0,
-            "aggressive": -0.15
-        }
-        
-        volatility = volatility_scores.get(symbol, 0.5)
-        base_probability = 0.8 - (volatility * 0.3)
-        success_probability = max(0.1, min(0.9, base_probability + strategy_impact.get(strategy, 0)))
-        recommended_rate = max(0.01, min(0.05, 0.03 - (volatility * 0.02)))
-        
-        return {
-            "symbol": symbol,
-            "volatility": volatility,
-            "success_probability": success_probability,
-            "recommended_growth_rate": recommended_rate,
-            "analysis_time": datetime.now().isoformat(),
-            "strategy_used": strategy
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Erro na análise de mercado: {e}")
-        raise HTTPException(status_code=500, detail="Erro na análise de mercado")
-
-@app.get("/api/debug/pwa")
-async def debug_pwa():
-    return {
-        "frontend_path": FRONTEND_PATH,
-        "icons_exist": os.path.exists(os.path.join(FRONTEND_PATH, "icons")),
-        "service_worker_exists": os.path.exists(os.path.join(FRONTEND_PATH, "service-worker.js")),
-        "manifest_exists": os.path.exists(os.path.join(FRONTEND_PATH, "manifest.json")),
-        "offline_page_exists": os.path.exists(os.path.join(FRONTEND_PATH, "offline.html")),
-        "available_icons": os.listdir(os.path.join(FRONTEND_PATH, "icons")) if os.path.exists(os.path.join(FRONTEND_PATH, "icons")) else []
-    }
-
-# ✅ NOVO: Endpoint para verificar status da conexão Deriv
-@app.get("/api/debug/deriv-connection")
-async def debug_deriv_connection():
-    if not deriv_service:
-        return {"status": "error", "message": "Deriv service não inicializado"}
-    
-    return {
-        "connected": deriv_service.connected,
-        "app_id": DERIV_APP_ID,
-        "endpoint": DERIV_API_URL,
-        "environment": ENVIRONMENT,
-        "active_users": len(active_tokens),
-        "user_sessions": len(user_sessions)
-    }
-
-@app.get("/api/health")
-async def health_check():
-    return {
+# ✅ HEALTH CHECK PRODUÇÃO AVANÇADO
+@app.get("/health")
+async def production_health_check():
+    """Health check específico para produção com verificação de conexão"""
+    base_health = {
         "status": "healthy",
         "service": "FinanceClick AI Trading",
         "timestamp": datetime.now().isoformat(),
-        "deriv_connected": deriv_service.connected if deriv_service else False,
-        "robot_active": robot_active,
+        "port": PORT,
+        "environment": ENVIRONMENT,
+        "version": "3.2.0",
+        "branch": "master"
+    }
+    
+    # Verificar saúde da conexão Deriv se o serviço estiver disponível
+    if deriv_service:
+        deriv_health = await deriv_service.production_health_check()
+        base_health.update({
+            "deriv_connection": deriv_health,
+            "active_users": len(active_tokens),
+            "user_sessions": len(user_sessions),
+            "robot_active": robot_active
+        })
+    else:
+        base_health.update({
+            "deriv_connection": {"status": "service_not_ready"},
+            "active_users": len(active_tokens),
+            "user_sessions": len(user_sessions)
+        })
+    
+    return base_health
+
+@app.get("/api/health")
+async def api_health_check():
+    """Health check para API com status detalhado"""
+    if deriv_service:
+        deriv_status = await deriv_service.production_health_check()
+    else:
+        deriv_status = {"status": "service_not_initialized"}
+    
+    return {
+        "status": "healthy",
+        "deriv_connection": deriv_status,
         "active_users": len(active_tokens),
         "user_sessions": len(user_sessions),
         "environment": ENVIRONMENT,
-        "version": "3.0.0",
-        "api_version": "python-deriv-api (mais recente)"
+        "timestamp": datetime.now().isoformat()
     }
 
+# ✅ ENDPOINT DE STATUS DA CONEXÃO
+@app.get("/api/connection/status")
+async def connection_status():
+    """Endpoint específico para verificar status da conexão Deriv"""
+    if not deriv_service:
+        return {"status": "service_not_initialized"}
+    
+    health = await deriv_service.production_health_check()
+    return {
+        "connection_status": health,
+        "connection_attempts": deriv_service.connection_attempts,
+        "max_retries": deriv_service.max_retries,
+        "timestamp": datetime.now().isoformat()
+    }
+
+# ✅ BLOCO DE PRODUÇÃO - SEM RELOAD
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    print(f"🏁 Iniciando servidor de PRODUÇÃO na porta {PORT}")
+    uvicorn.run(
+        app,  # ✅ Usar app diretamente para produção
+        host="0.0.0.0", 
+        port=PORT
+        # ❌ SEM reload em produção
+    )
