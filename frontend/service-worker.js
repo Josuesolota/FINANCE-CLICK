@@ -1,9 +1,9 @@
 // service-worker.js - FinanceClick PWA CORRIGIDO
-const CACHE_NAME = 'financeclick-v3.0.0';
+const CACHE_NAME = 'financeclick-v3.1.0';
 const STATIC_CACHE = 'static-v3';
 const DYNAMIC_CACHE = 'dynamic-v3';
 
-// Arquivos para cache estático - CAMINHOS CORRETOS
+// ✅ CORREÇÃO: Caminhos corrigidos para ícones
 const STATIC_FILES = [
   '/',
   '/index.html',
@@ -17,18 +17,18 @@ const STATIC_FILES = [
   '/manifest.json',
   '/offline.html',
   
-  // Ícones com caminhos corrigidos
-  '/frontend/icons/icon-72x72.png',
-  '/frontend/icons/icon-96x96.png',
-  '/frontend/icons/icon-128x128.png',
-  '/frontend/icons/icon-144x144.png',
-  '/frontend/icons/icon-152x152.png',
-  '/frontend/icons/icon-192x192.png',
-  '/frontend/icons/icon-384x384.png',
-  '/frontend/icons/icon-512x512.png'
+  // Ícones com caminhos CORRETOS
+  '/icons/icon-72x72.png',
+  '/icons/icon-96x96.png',
+  '/icons/icon-128x128.png',
+  '/icons/icon-144x144.png',
+  '/icons/icon-152x152.png',
+  '/icons/icon-192x192.png',
+  '/icons/icon-384x384.png',
+  '/icons/icon-512x512.png'
 ];
 
-// Instalação - Cache dos arquivos estáticos
+// Instalação
 self.addEventListener('install', (event) => {
   console.log('🚀 Service Worker instalando...');
   
@@ -43,13 +43,13 @@ self.addEventListener('install', (event) => {
         return self.skipWaiting();
       })
       .catch((error) => {
-        console.error('❌ Erro na instalação do Service Worker:', error);
+        console.error('❌ Erro na instalação:', error);
         return self.skipWaiting();
       })
   );
 });
 
-// Ativação - Limpar caches antigos
+// Ativação
 self.addEventListener('activate', (event) => {
   console.log('🔄 Service Worker ativando...');
   
@@ -70,18 +70,18 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Estratégia: Cache First com fallback para network
+// Fetch
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Ignorar requisições para a API (sempre network)
+  // APIs sempre network first
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
     event.respondWith(networkFirst(request));
     return;
   }
 
-  // Para arquivos estáticos: Cache First
+  // Arquivos estáticos: cache first
   event.respondWith(cacheFirst(request));
 });
 
@@ -151,71 +151,3 @@ async function networkFirst(request) {
     );
   }
 }
-
-// Sincronização em background
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'background-sync') {
-    console.log('🔄 Sincronização em background');
-    event.waitUntil(doBackgroundSync());
-  }
-});
-
-async function doBackgroundSync() {
-  try {
-    console.log('📡 Sincronizando dados em background...');
-    // Implementar lógica de sincronização aqui
-  } catch (error) {
-    console.error('❌ Erro na sincronização:', error);
-  }
-}
-
-// Notificações push
-self.addEventListener('push', (event) => {
-  if (!event.data) return;
-
-  try {
-    const data = event.data.json();
-    const options = {
-      body: data.body || 'Nova notificação do FinanceClick',
-      icon: '/frontend/icons/icon-192x192.png',
-      badge: '/frontend/icons/icon-72x72.png',
-      vibrate: [100, 50, 100],
-      data: {
-        url: data.url || '/'
-      },
-      actions: [
-        {
-          action: 'open',
-          title: 'Abrir'
-        },
-        {
-          action: 'close', 
-          title: 'Fechar'
-        }
-      ]
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(data.title || 'FinanceClick', options)
-    );
-  } catch (error) {
-    console.error('❌ Erro na notificação push:', error);
-  }
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-
-  if (event.action === 'open') {
-    event.waitUntil(
-      clients.openWindow(event.notification.data.url)
-    );
-  }
-});
-
-// Gerenciamento de mensagens
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-});

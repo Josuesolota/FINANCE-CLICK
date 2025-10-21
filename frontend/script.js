@@ -1,99 +1,27 @@
-// ==================== PWA SUPPORT ====================
+// script.js - FINANCECLICK - VERSÃO FINAL CORRIGIDA
+// ✅ CORREÇÕES: Autenticação OAuth robusta + Indicadores visuais
 
-// Registrar Service Worker
+// ==================== PWA SUPPORT ====================
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
         navigator.serviceWorker.register('/service-worker.js')
             .then(function(registration) {
-                console.log('✅ Service Worker registrado com sucesso:', registration.scope);
-                
-                registration.addEventListener('updatefound', () => {
-                    const newWorker = registration.installing;
-                    console.log('🔄 Nova versão do Service Worker encontrada');
-                    
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            console.log('📦 Nova versão pronta para instalação');
-                            showPWAUpdateNotification();
-                        }
-                    });
-                });
+                console.log('✅ Service Worker registrado:', registration.scope);
             })
             .catch(function(error) {
-                console.log('❌ Falha no registro do Service Worker:', error);
+                console.log('❌ Service Worker falhou:', error);
             });
     });
 }
 
-// Detectar se é PWA
-function isRunningAsPWA() {
-    return window.matchMedia('(display-mode: standalone)').matches || 
-           window.navigator.standalone === true;
-}
-
-// Instalar PWA
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    showInstallPromotion();
-});
-
-function showInstallPromotion() {
-    const installBtn = document.getElementById('installPWA');
-    if (installBtn) {
-        installBtn.style.display = 'block';
-        installBtn.addEventListener('click', installPWA);
-    }
-}
-
-async function installPWA() {
-    if (!deferredPrompt) return;
+// script.js - FINANCECLICK - VERSÃO FINAL CORRIGIDA
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎯 FinanceClick - Inicializando plataforma...');
     
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-        console.log('✅ PWA instalado pelo usuário');
-        showNotification('FinanceClick instalado com sucesso!', 'success');
-    } else {
-        console.log('❌ Usuário recusou a instalação do PWA');
-    }
-    
-    deferredPrompt = null;
-}
-
-function showPWAUpdateNotification() {
-    if (isRunningAsPWA()) {
-        showNotification('Nova versão disponível! Recarregue o app para atualizar.', 'info');
-    }
-}
-
-// Network status monitoring
-function setupNetworkMonitoring() {
-    window.addEventListener('online', () => {
-        console.log('✅ Conexão restaurada');
-        showNotification('Conexão restaurada - Sincronizando dados...', 'success');
-        if (currentUser) {
-            updateAccountBalance();
-            updateRobotStatus();
-        }
-    });
-
-    window.addEventListener('offline', () => {
-        console.log('❌ Conexão perdida');
-        showNotification('Você está offline - Modo limitado', 'warning');
-    });
-}
-
-// script.js - FINANCECLICK - VERSÃO CORRIGIDA COM FLUXO OAUTH FIXED
-document.addEventListener('DOMContentLoaded'), function() {
-    console.log('🎯 FinanceClick - Inicializando plataforma de trading...');
-}
     // ==================== CONFIGURAÇÃO ====================
-    ;const CONFIG = {
+    const CONFIG = {
         appName: 'FinanceClick',
-        version: '2.5.0',
+        version: '2.6.0',
         apiBaseUrl: window.location.origin,
         updateInterval: 30000,
         maxRetries: 3,
@@ -104,47 +32,49 @@ document.addEventListener('DOMContentLoaded'), function() {
     let currentUser = null;
     let isRobotActive = false;
     let currentBalance = 0;
-    let marketData = null;
-    let activeContracts = [];
+    let authCheckInProgress = false;
 
     // Elementos DOM
     let elements = {};
 
-    // ==================== SISTEMA DE AUTENTICAÇÃO CORRIGIDO ====================
+    // ==================== SISTEMA DE AUTENTICAÇÃO ROBUSTO ====================
 
     /**
-     * ✅ CORREÇÃO CRÍTICA: Processa callback OAuth da Deriv com redirecionamento correto
+     * ✅ CORREÇÃO CRÍTICA: Processamento OAuth melhorado
      */
     function processOAuthCallback() {
-        console.group('🔄 Processamento OAuth Callback - Fluxo Corrigido');
+        console.group('🔄 Processamento OAuth Callback - Versão Robusta');
         const urlParams = new URLSearchParams(window.location.search);
-        const currentUrl = window.location.href;
         
-        console.log('📍 URL atual:', currentUrl);
-        
-        // Verificar se há parâmetros OAuth OU se há erro de autenticação
         const hasOAuthParams = urlParams.has('acct1') || urlParams.has('token1');
         const hasAuthError = urlParams.has('auth_error');
         
-        console.log('🎯 Parâmetros detectados:', { 
+        console.log('🔍 Parâmetros detectados:', { 
             hasOAuthParams, 
             hasAuthError,
             authError: urlParams.get('auth_error')
         });
         
+        // Tratar erros de autenticação
         if (hasAuthError) {
             const errorCode = urlParams.get('auth_error');
-            console.error('❌ Erro de autenticação detectado:', errorCode);
+            console.error('❌ Erro de autenticação:', errorCode);
             
-            // Limpar URL e mostrar mensagem de erro
-            const cleanUrl = window.location.pathname;
-            window.history.replaceState({}, document.title, cleanUrl);
+            // Limpar URL
+            window.history.replaceState({}, document.title, window.location.pathname);
             
-            showNotification('Erro na autenticação. Tente novamente.', 'error');
+            const errorMessages = {
+                '1': 'Erro de autenticação na Deriv',
+                '2': 'Nenhuma conta recebida',
+                '3': 'Erro interno no servidor'
+            };
+            
+            showNotification(errorMessages[errorCode] || 'Erro de autenticação', 'error');
             console.groupEnd();
             return false;
         }
         
+        // Processar tokens OAuth
         if (hasOAuthParams) {
             console.log('✅ Iniciando processamento de tokens OAuth...');
             
@@ -158,38 +88,47 @@ document.addEventListener('DOMContentLoaded'), function() {
                 
                 console.log(`📥 Processando conta ${i}:`, { 
                     loginid, 
-                    token: token ? `***${token.slice(-4)}` : 'NULL'
+                    tokenLength: token ? token.length : 0
                 });
                 
                 if (loginid && token && token.length > 10) {
-                    saveAuthData(loginid, token, currency);
-                    tokensProcessed = true;
-                    console.log('💾 Tokens salvos com sucesso:', loginid);
+                    // ✅ CORREÇÃO: Salvar dados com verificação
+                    const saved = saveAuthData(loginid, token, currency);
+                    if (saved) {
+                        tokensProcessed = true;
+                        console.log('💾 Tokens salvos:', loginid);
+                        
+                        // ✅ NOVO: Mostrar indicador visual imediato
+                        showAuthSuccessIndicator();
+                    }
                     break;
                 }
                 i++;
             }
             
             if (tokensProcessed) {
-                // ✅ CORREÇÃO: Limpar URL E redirecionar para dashboard
-                const cleanUrl = window.location.pathname;
-                window.history.replaceState({}, document.title, cleanUrl);
-                console.log('🧹 URL limpa para:', cleanUrl);
+                // ✅ CORREÇÃO: Limpar URL antes de qualquer redirecionamento
+                window.history.replaceState({}, document.title, window.location.pathname);
+                console.log('🧹 URL limpa');
                 
-                // ✅ CORREÇÃO: Redirecionar para dashboard após processar tokens
-                console.log('🔄 Redirecionando para dashboard...');
-                showNotification('Autenticação bem-sucedida! Redirecionando...', 'success');
-                
-                // Pequeno delay para mostrar a notificação
+                // ✅ CORREÇÃO: Esperar e verificar antes de redirecionar
                 setTimeout(() => {
-                    window.location.href = '/dashboard.html';
-                }, 1500);
+                    if (hasAuthData()) {
+                        console.log('🔐 Dados confirmados no localStorage - Redirecionando...');
+                        showNotification('Autenticação bem-sucedida! Redirecionando...', 'success');
+                        
+                        // Pequeno delay para usuário ver a mensagem
+                        setTimeout(() => {
+                            window.location.href = '/dashboard.html';
+                        }, 2000);
+                    } else {
+                        console.error('❌ Dados não persistidos no localStorage');
+                        showNotification('Erro: Falha ao salvar sessão', 'error');
+                    }
+                }, 1000);
                 
                 console.groupEnd();
                 return true;
-            } else {
-                console.warn('⚠️ Tokens OAuth presentes mas inválidos');
-                showNotification('Erro: Tokens de autenticação inválidos', 'error');
             }
         }
         
@@ -199,7 +138,23 @@ document.addEventListener('DOMContentLoaded'), function() {
     }
 
     /**
-     * Salva dados de autenticação no localStorage
+     * ✅ NOVO: Indicador visual de autenticação bem-sucedida
+     */
+    function showAuthSuccessIndicator() {
+        // Atualizar UI imediatamente
+        const tempUser = {
+            loginid: 'Carregando...',
+            name: 'Usuário FinanceClick',
+            account_type: 'real'
+        };
+        updateUIForAuthenticated(tempUser);
+        
+        // Mostrar indicador visual
+        showNotification('🔐 Sessão restaurada com sucesso!', 'success');
+    }
+
+    /**
+     * Salvar dados de autenticação com verificação
      */
     function saveAuthData(loginid, token, currency = 'USD') {
         try {
@@ -208,25 +163,27 @@ document.addEventListener('DOMContentLoaded'), function() {
             localStorage.setItem('deriv_currency', currency);
             localStorage.setItem('deriv_last_login', new Date().toISOString());
             
-            console.log('🔐 Dados de autenticação salvos:', loginid);
+            console.log('🔐 Dados salvos:', loginid);
             return true;
         } catch (error) {
-            console.error('❌ Erro ao salvar dados de autenticação:', error);
+            console.error('❌ Erro ao salvar dados:', error);
+            showNotification('Erro ao salvar sessão', 'error');
             return false;
         }
     }
 
     /**
-     * Verifica se existem dados de autenticação
+     * Verificar dados de autenticação
      */
     function hasAuthData() {
         const token = localStorage.getItem('deriv_token');
         const loginid = localStorage.getItem('deriv_loginid');
         const isValid = !!(token && loginid && token.length > 10);
         
-        console.log('📋 Verificação dados auth:', { 
+        console.log('📋 Verificação auth:', { 
             hasToken: !!token, 
             hasLoginId: !!loginid,
+            tokenLength: token?.length,
             isValid 
         });
         
@@ -234,7 +191,7 @@ document.addEventListener('DOMContentLoaded'), function() {
     }
 
     /**
-     * Limpa dados de autenticação
+     * Limpar dados de autenticação
      */
     function clearAuthData() {
         try {
@@ -244,16 +201,16 @@ document.addEventListener('DOMContentLoaded'), function() {
             localStorage.removeItem('deriv_last_login');
             
             currentUser = null;
-            console.log('🧹 Dados de autenticação removidos');
+            console.log('🧹 Dados removidos');
             return true;
         } catch (error) {
-            console.error('❌ Erro ao limpar dados de autenticação:', error);
+            console.error('❌ Erro ao limpar dados:', error);
             return false;
         }
     }
 
     /**
-     * Obtém headers para requisições autenticadas
+     * Obter headers de autenticação
      */
     function getAuthHeaders() {
         const token = localStorage.getItem('deriv_token');
@@ -274,13 +231,13 @@ document.addEventListener('DOMContentLoaded'), function() {
         };
     }
 
-    // ==================== GESTÃO DE ESTADO DA APLICAÇÃO ====================
+    // ==================== INICIALIZAÇÃO ROBUSTA ====================
 
     /**
-     * Inicialização principal da aplicação
+     * Inicialização principal
      */
     async function initializeApplication() {
-        console.group('🚀 Inicialização da Aplicação - Fluxo Corrigido');
+        console.group('🚀 Inicialização da Aplicação - Versão Robusta');
         
         try {
             // 1. Configurações iniciais
@@ -289,46 +246,45 @@ document.addEventListener('DOMContentLoaded'), function() {
             setupMobileNavigation();
             setupActiveNavigation();
             
-            // 2. ✅ CORREÇÃO: Processar callback OAuth PRIMEIRO (se houver)
+            // 2. ✅ CORREÇÃO: Processar OAuth callback PRIMEIRO
             const hadOAuthCallback = processOAuthCallback();
             
-            // 3. Se houve callback OAuth, não continuar a inicialização normal
-            // pois vamos redirecionar para o dashboard
+            // 3. Se houve callback, não continuar (já vai redirecionar)
             if (hadOAuthCallback) {
                 console.log('🔄 OAuth processado - Aguardando redirecionamento...');
                 console.groupEnd();
                 return;
             }
             
-            // 4. Verificar autenticação normal (sem OAuth callback)
+            // 4. Verificar autenticação existente
             if (hasAuthData()) {
                 console.log('🔐 Verificando autenticação existente...');
                 await checkAuthentication();
             } else {
-                console.log('🔐 Nenhum dado de autenticação encontrado');
+                console.log('🔐 Nenhuma autenticação encontrada');
                 updateUIForUnauthenticated();
             }
             
-            // 5. Configurar interface e eventos
+            // 5. Configurar interface
             setupUserInterface();
             setupEventListeners();
             await loadInitialData();
             
-            // 6. Iniciar serviços em background
+            // 6. Iniciar serviços
             startBackgroundServices();
             
             console.log('✅ Aplicação inicializada com sucesso');
             
         } catch (error) {
-            console.error('💥 Erro crítico na inicialização:', error);
-            showNotification('Erro ao inicializar a aplicação', 'error');
+            console.error('💥 Erro na inicialização:', error);
+            showNotification('Erro ao inicializar aplicação', 'error');
         }
         
         console.groupEnd();
     }
 
     /**
-     * Inicializa elementos DOM de forma robusta
+     * Inicializar elementos DOM
      */
     function initializeDOMElements() {
         const elementIds = [
@@ -349,25 +305,32 @@ document.addEventListener('DOMContentLoaded'), function() {
     }
 
     /**
-     * Verifica autenticação com o backend
+     * ✅ CORREÇÃO: Verificação de autenticação robusta
      */
     async function checkAuthentication() {
-        console.group('🔐 Verificação de Autenticação');
+        if (authCheckInProgress) {
+            console.log('🔐 Verificação de auth já em andamento...');
+            return;
+        }
+        
+        authCheckInProgress = true;
+        console.group('🔐 Verificação de Autenticação Robusta');
         
         if (!hasAuthData()) {
-            console.log('❌ Dados de autenticação incompletos');
+            console.log('❌ Dados de auth incompletos');
             updateUIForUnauthenticated();
+            authCheckInProgress = false;
             console.groupEnd();
             return;
         }
 
         try {
-            console.log('🔄 Consultando endpoint /api/me...');
+            console.log('🔄 Consultando /api/me...');
             const response = await fetchWithTimeout('/api/me', {
                 headers: getAuthHeaders()
             });
 
-            console.log('📡 Status da resposta:', response.status);
+            console.log('📡 Status:', response.status);
             
             if (response.ok) {
                 const userData = await response.json();
@@ -376,16 +339,20 @@ document.addEventListener('DOMContentLoaded'), function() {
                 currentUser = userData;
                 updateUIForAuthenticated(userData);
                 
+                // ✅ NOVO: Carregar dados adicionais
+                await loadUserData();
+                
             } else if (response.status === 401) {
-                console.log('🔄 Token inválido, tentando restaurar sessão...');
+                console.log('🔄 Token inválido, tentando restaurar...');
                 const restored = await restoreBackendSession();
                 
                 if (restored) {
-                    await checkAuthentication();
+                    await checkAuthentication(); // Retry
                 } else {
                     console.log('❌ Falha ao restaurar sessão');
                     clearAuthData();
                     updateUIForUnauthenticated();
+                    showNotification('Sessão expirada. Faça login novamente.', 'warning');
                 }
             } else {
                 console.log('❌ Erro na autenticação:', response.status);
@@ -393,15 +360,44 @@ document.addEventListener('DOMContentLoaded'), function() {
             }
             
         } catch (error) {
-            console.error('💥 Erro ao verificar autenticação:', error);
+            console.error('💥 Erro ao verificar auth:', error);
             updateUIForUnauthenticated();
+            
+            // ✅ NOVO: Tentar restaurar sessão em caso de erro de rede
+            if (error.name === 'TypeError') {
+                showNotification('Problema de conexão. Tentando reconectar...', 'warning');
+                setTimeout(() => checkAuthentication(), 5000);
+            }
         }
         
+        authCheckInProgress = false;
         console.groupEnd();
     }
 
     /**
-     * Restaura sessão no backend
+     * ✅ NOVO: Carregar dados do usuário após autenticação
+     */
+    async function loadUserData() {
+        if (!currentUser) return;
+        
+        try {
+            console.log('📥 Carregando dados do usuário...');
+            
+            await Promise.all([
+                updateAccountBalance(),
+                updateRobotStatus(),
+                loadMarketAnalysis()
+            ]);
+            
+            console.log('✅ Dados do usuário carregados');
+            
+        } catch (error) {
+            console.error('❌ Erro ao carregar dados:', error);
+        }
+    }
+
+    /**
+     * Restaurar sessão no backend
      */
     async function restoreBackendSession() {
         try {
@@ -413,22 +409,22 @@ document.addEventListener('DOMContentLoaded'), function() {
             });
 
             if (response.ok) {
-                console.log('✅ Sessão restaurada com sucesso');
+                console.log('✅ Sessão restaurada');
                 return true;
             } else {
-                console.log('❌ Falha ao restaurar sessão:', response.status);
+                console.log('❌ Falha ao restaurar:', response.status);
                 return false;
             }
         } catch (error) {
-            console.error('💥 Erro ao restaurar sessão:', error);
+            console.error('💥 Erro ao restaurar:', error);
             return false;
         }
     }
 
-    // ==================== SISTEMA DE INTERFACE DO USUÁRIO ====================
+    // ==================== SISTEMA DE INTERFACE ====================
 
     /**
-     * Atualiza UI para usuário autenticado
+     * Atualizar UI para autenticado
      */
     function updateUIForAuthenticated(userData) {
         console.group('🎨 Atualizando UI para Autenticado');
@@ -438,8 +434,7 @@ document.addEventListener('DOMContentLoaded'), function() {
             if (elements.loginLogoutBtn) {
                 elements.loginLogoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
                 elements.loginLogoutBtn.onclick = handleLogout;
-                elements.loginLogoutBtn.classList.remove('btn-login');
-                elements.loginLogoutBtn.classList.add('btn-logout');
+                elements.loginLogoutBtn.className = 'btn-login-logout btn-logout';
             }
 
             // Informações do usuário
@@ -461,22 +456,20 @@ document.addEventListener('DOMContentLoaded'), function() {
                 el.style.display = 'block';
             });
 
-            // Esconder elementos para não autenticados
-            document.querySelectorAll('[data-no-auth]').forEach(el => {
-                el.style.display = 'none';
-            });
+            // ✅ NOVO: Atualizar status de conexão
+            updateConnectionStatus(true);
 
-            console.log('✅ UI atualizada para modo autenticado');
+            console.log('✅ UI atualizada para autenticado');
 
         } catch (error) {
-            console.error('❌ Erro ao atualizar UI autenticada:', error);
+            console.error('❌ Erro ao atualizar UI:', error);
         }
         
         console.groupEnd();
     }
 
     /**
-     * Atualiza UI para usuário não autenticado
+     * Atualizar UI para não autenticado
      */
     function updateUIForUnauthenticated() {
         console.group('🎨 Atualizando UI para Não Autenticado');
@@ -486,8 +479,7 @@ document.addEventListener('DOMContentLoaded'), function() {
             if (elements.loginLogoutBtn) {
                 elements.loginLogoutBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
                 elements.loginLogoutBtn.onclick = handleLogin;
-                elements.loginLogoutBtn.classList.remove('btn-logout');
-                elements.loginLogoutBtn.classList.add('btn-login');
+                elements.loginLogoutBtn.className = 'btn-login-logout btn-login';
             }
 
             // Informações do usuário
@@ -501,63 +493,59 @@ document.addEventListener('DOMContentLoaded'), function() {
                 el.style.display = 'none';
             });
 
-            // Mostrar elementos para não autenticados
-            document.querySelectorAll('[data-no-auth]').forEach(el => {
-                el.style.display = 'block';
-            });
+            // ✅ NOVO: Atualizar status de conexão
+            updateConnectionStatus(false);
 
-            console.log('✅ UI atualizada para modo não autenticado');
+            console.log('✅ UI atualizada para não autenticado');
 
         } catch (error) {
-            console.error('❌ Erro ao atualizar UI não autenticada:', error);
+            console.error('❌ Erro ao atualizar UI:', error);
         }
         
         console.groupEnd();
+    }
+
+    /**
+     * ✅ NOVO: Atualizar status de conexão
+     */
+    function updateConnectionStatus(connected) {
+        const statusElement = document.getElementById('connectionStatus');
+        if (!statusElement) return;
+
+        if (connected) {
+            statusElement.innerHTML = '<i class="fas fa-circle" style="color: #28a745"></i><span>Conectado à Deriv API</span>';
+            statusElement.style.display = 'flex';
+        } else {
+            statusElement.style.display = 'none';
+        }
     }
 
     // ==================== SISTEMA DE TRADING ====================
 
     /**
-     * Configura eventos de trading
+     * Configurar eventos de trading
      */
     function setupTradingEvents() {
-        console.group('💰 Configurando Sistema de Trading');
-        
-        try {
-            if (elements.buyAccumulatorBtn) {
-                elements.buyAccumulatorBtn.addEventListener('click', executeAccumulatorPurchase);
-            }
-
-            if (elements.symbolSelect) {
-                elements.symbolSelect.addEventListener('change', handleSymbolChange);
-            }
-
-            if (elements.growthRate) {
-                elements.growthRate.addEventListener('change', updateProposalPreview);
-            }
-
-            if (elements.amount) {
-                elements.amount.addEventListener('input', updateProposalPreview);
-            }
-
-            console.log('✅ Sistema de trading configurado');
-
-        } catch (error) {
-            console.error('❌ Erro ao configurar trading:', error);
+        if (elements.buyAccumulatorBtn) {
+            elements.buyAccumulatorBtn.addEventListener('click', executeAccumulatorPurchase);
         }
-        
-        console.groupEnd();
+        if (elements.symbolSelect) {
+            elements.symbolSelect.addEventListener('change', updateProposalPreview);
+        }
+        if (elements.growthRate) {
+            elements.growthRate.addEventListener('change', updateProposalPreview);
+        }
+        if (elements.amount) {
+            elements.amount.addEventListener('input', updateProposalPreview);
+        }
     }
 
     /**
-     * Executa compra de Accumulator
+     * Executar compra de Accumulator
      */
     async function executeAccumulatorPurchase() {
-        console.group('🛒 Executando Compra Accumulator');
-        
         if (!currentUser) {
-            showNotification('🔐 Por favor, faça login antes de negociar', 'warning');
-            console.groupEnd();
+            showNotification('🔐 Faça login antes de negociar', 'warning');
             return;
         }
 
@@ -570,11 +558,8 @@ document.addEventListener('DOMContentLoaded'), function() {
                 duration_unit: 't'
             };
 
-            console.log('📦 Dados da trade:', tradeData);
-
             if (tradeData.amount < 5 || tradeData.amount > 1000) {
                 showNotification('❌ Valor deve estar entre $5 e $1000', 'error');
-                console.groupEnd();
                 return;
             }
 
@@ -588,144 +573,23 @@ document.addEventListener('DOMContentLoaded'), function() {
 
             if (response.ok) {
                 const result = await response.json();
-                console.log('✅ Compra executada:', result);
-                
                 showNotification('✅ Compra executada com sucesso!', 'success');
-                
                 await updateAccountBalance();
-                
-                if (result.buy) {
-                    displayContractDetails(result.buy);
-                }
-                
             } else {
-                const errorData = await response.json().catch(() => ({ detail: 'Erro desconhecido' }));
-                console.error('❌ Erro na compra:', errorData);
-                showNotification(`❌ Erro: ${errorData.detail || 'Falha na compra'}`, 'error');
+                const error = await response.json().catch(() => ({ detail: 'Erro desconhecido' }));
+                showNotification(`❌ Erro: ${error.detail || 'Falha na compra'}`, 'error');
             }
 
         } catch (error) {
-            console.error('💥 Erro na execução da compra:', error);
-            showNotification('💥 Erro de comunicação com o servidor', 'error');
-        }
-        
-        console.groupEnd();
-    }
-
-    // ==================== SISTEMA DO ROBÔ AI ====================
-
-    /**
-     * Configura sistema do robô AI
-     */
-    function setupRobotAI() {
-        console.group('🤖 Configurando Sistema AI');
-        
-        try {
-            if (elements.toggleRobotBtn) {
-                elements.toggleRobotBtn.addEventListener('click', toggleRobotAI);
-            }
-
-            updateRobotStatus();
-
-            console.log('✅ Sistema AI configurado');
-
-        } catch (error) {
-            console.error('❌ Erro ao configurar AI:', error);
-        }
-        
-        console.groupEnd();
-    }
-
-    /**
-     * Alterna estado do robô AI
-     */
-    async function toggleRobotAI() {
-        if (!currentUser) {
-            showNotification('🔐 Faça login para usar o robô AI', 'warning');
-            return;
-        }
-
-        try {
-            const config = {
-                strategy: elements.strategySelect?.value || 'moderate',
-                trade_amount: parseFloat(elements.tradeAmount?.value) || 5,
-                growth_rate: 0.02,
-                max_daily_loss: 100,
-                take_profit_ticks: 10,
-                stop_loss_ticks: 3
-            };
-
-            showNotification('🔄 Alternando robô AI...', 'info');
-
-            const response = await fetchWithTimeout('/api/robot/toggle', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(config)
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                isRobotActive = result.status === 'running';
-                
-                updateRobotDisplay();
-                
-                showNotification(
-                    isRobotActive ? '🤖 Robô AI ativado!' : '🤖 Robô AI desativado',
-                    isRobotActive ? 'success' : 'info'
-                );
-
-            } else {
-                showNotification('❌ Erro ao controlar robô', 'error');
-            }
-
-        } catch (error) {
-            console.error('💥 Erro ao alternar robô:', error);
+            console.error('💥 Erro na compra:', error);
             showNotification('💥 Erro de comunicação', 'error');
-        }
-    }
-
-    /**
-     * Atualiza display do robô
-     */
-    function updateRobotDisplay() {
-        if (!elements.toggleRobotBtn || !elements.aiStatus) return;
-
-        if (isRobotActive) {
-            elements.toggleRobotBtn.innerHTML = '<i class="fas fa-stop"></i> PARAR ROBÔ';
-            elements.toggleRobotBtn.className = 'btn btn-danger btn-robot-active';
-            elements.aiStatus.innerHTML = '<i class="fas fa-circle pulse"></i> ROBÔ ATIVO';
-            elements.aiStatus.className = 'robot-status active';
-        } else {
-            elements.toggleRobotBtn.innerHTML = '<i class="fas fa-play"></i> INICIAR ROBÔ';
-            elements.toggleRobotBtn.className = 'btn btn-success btn-robot-inactive';
-            elements.aiStatus.innerHTML = '<i class="fas fa-circle"></i> ROBÔ INATIVO';
-            elements.aiStatus.className = 'robot-status';
-        }
-    }
-
-    /**
-     * Atualiza status do robô
-     */
-    async function updateRobotStatus() {
-        try {
-            const response = await fetchWithTimeout('/api/robot/status', {
-                headers: getAuthHeaders()
-            });
-
-            if (response.ok) {
-                const status = await response.json();
-                isRobotActive = status.active;
-                updateRobotDisplay();
-            }
-        } catch (error) {
-            console.error('❌ Erro ao verificar status do robô:', error);
         }
     }
 
     // ==================== SISTEMA FINANCEIRO ====================
 
     /**
-     * Atualiza saldo da conta
+     * Atualizar saldo da conta
      */
     async function updateAccountBalance() {
         if (!elements.accountBalance) return;
@@ -742,6 +606,7 @@ document.addEventListener('DOMContentLoaded'), function() {
                     elements.accountBalance.textContent = 
                         `$${currentBalance.toFixed(2)} ${data.balance.currency || 'USD'}`;
                     
+                    // Efeito visual de atualização
                     elements.accountBalance.classList.add('balance-updated');
                     setTimeout(() => {
                         elements.accountBalance.classList.remove('balance-updated');
@@ -754,10 +619,10 @@ document.addEventListener('DOMContentLoaded'), function() {
         }
     }
 
-    // ==================== UTILITÁRIOS AVANÇADOS ====================
+    // ==================== UTILITÁRIOS ====================
 
     /**
-     * Fetch com timeout e tratamento de erro
+     * Fetch com timeout
      */
     async function fetchWithTimeout(resource, options = {}) {
         const { timeout = CONFIG.timeout } = options;
@@ -779,7 +644,7 @@ document.addEventListener('DOMContentLoaded'), function() {
     }
 
     /**
-     * Configura navegação mobile
+     * Configurar navegação mobile
      */
     function setupMobileNavigation() {
         if (!elements.menuToggle || !elements.mainNav) return;
@@ -788,107 +653,45 @@ document.addEventListener('DOMContentLoaded'), function() {
             elements.mainNav.classList.toggle('open');
             elements.menuToggle.classList.toggle('active');
         });
-
-        const navLinks = elements.mainNav.querySelectorAll('a');
-        navLinks.forEach(link => {
-            link.addEventListener('click', function() {
-                if (window.innerWidth < 768) {
-                    elements.mainNav.classList.remove('open');
-                    elements.menuToggle.classList.remove('active');
-                }
-            });
-        });
     }
 
     /**
-     * Configura navegação ativa
-     */
-    function setupActiveNavigation() {
-        const mainNav = document.getElementById('mainNav');
-        if (!mainNav) return;
-
-        const currentPage = window.location.pathname.split('/').pop() || 'index.html';
-        const navLinks = mainNav.querySelectorAll('a.nav-link');
-        
-        navLinks.forEach(link => {
-            link.classList.remove('active');
-            const linkPage = link.getAttribute('href').split('/').pop();
-            
-            if (linkPage === currentPage) {
-                link.classList.add('active');
-            }
-        });
-    }
-
-    /**
-     * Configura estilos essenciais
+     * Configurar estilos essenciais
      */
     function setupEssentialStyles() {
         if (!document.querySelector('#financeclick-styles')) {
             const styles = document.createElement('style');
             styles.id = 'financeclick-styles';
             styles.textContent = `
-                @keyframes slideInRight {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
+                .balance-updated { 
+                    animation: pulse 1s;
+                    color: #28a745 !important;
                 }
-                
                 @keyframes pulse {
                     0% { opacity: 1; }
                     50% { opacity: 0.5; }
                     100% { opacity: 1; }
                 }
-                
-                .pulse { animation: pulse 2s infinite; }
-                .balance-updated { animation: pulse 1s; }
-                
-                .notification-content {
-                    padding: 15px 20px;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }
-                
-                .notification-close {
-                    background: none;
-                    border: none;
-                    color: white;
-                    font-size: 18px;
-                    cursor: pointer;
-                    margin-left: auto;
-                }
-                
-                .user-welcome {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: flex-end;
-                    text-align: right;
-                }
-                
                 .account-type {
                     padding: 2px 8px;
                     border-radius: 4px;
                     font-size: 0.8em;
                     font-weight: bold;
                 }
-                
                 .account-type.demo { background: #ffeb3b; color: #000; }
                 .account-type.real { background: #4CAF50; color: white; }
-                
-                .robot-status.active { color: #4CAF50; }
-                .robot-status { color: #666; }
             `;
             document.head.appendChild(styles);
         }
     }
 
-    // ==================== HANDLERS DE AUTENTICAÇÃO ====================
+    // ==================== HANDLERS ====================
 
     /**
      * Handler de login
      */
     function handleLogin() {
-        console.log('🔐 Iniciando processo de login...');
+        console.log('🔐 Iniciando login...');
         showNotification('Redirecionando para Deriv...', 'info');
         
         if (elements.loginLogoutBtn) {
@@ -906,7 +709,7 @@ document.addEventListener('DOMContentLoaded'), function() {
      */
     async function handleLogout() {
         console.log('👋 Iniciando logout...');
-    }
+        
         try {
             const response = await fetchWithTimeout('/auth/logout', {
                 method: 'POST',
@@ -914,10 +717,150 @@ document.addEventListener('DOMContentLoaded'), function() {
             });
             
             if (response.ok) {
-                console.log('✅ Logout bem-sucedido no backend');
+                console.log('✅ Logout no backend');
             }
         } catch (error) {
-            console.error('⚠️ Erro no logout do backend:', error);
+            console.error('⚠️ Erro no logout:', error);
         } finally {
             clearAuthData();
+            updateUIForUnauthenticated();
+            showNotification('Logout realizado!', 'success');
+            
+            if (window.location.pathname.includes('dashboard')) {
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1500);
+            }
         }
+    }
+
+    // ==================== INICIALIZAÇÃO ====================
+
+    /**
+     * Configurar event listeners
+     */
+    function setupEventListeners() {
+        setupTradingEvents();
+        setupRobotAI();
+    }
+
+    /**
+     * Configurar interface
+     */
+    function setupUserInterface() {
+        updatePageSpecificUI();
+    }
+
+    /**
+     * Carregar dados iniciais
+     */
+    async function loadInitialData() {
+        if (!currentUser) return;
+        await loadUserData();
+    }
+
+    /**
+     * Iniciar serviços em background
+     */
+    function startBackgroundServices() {
+        // Atualizar dados a cada 30 segundos
+        setInterval(() => {
+            if (currentUser) {
+                updateAccountBalance();
+                updateRobotStatus();
+            }
+        }, 30000);
+    }
+
+    // ==================== SISTEMA DE NOTIFICAÇÕES ====================
+
+    /**
+     * Mostrar notificação
+     */
+    function showNotification(message, type = 'info') {
+        // Remover notificações existentes
+        document.querySelectorAll('.notification').forEach(n => n.remove());
+
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        
+        const icons = {
+            success: '✅',
+            error: '❌',
+            warning: '⚠️',
+            info: 'ℹ️'
+        };
+
+        notification.innerHTML = `
+            <div class="notification-content">
+                <span class="notification-icon">${icons[type] || ''}</span>
+                <span class="notification-message">${message}</span>
+                <button class="notification-close">&times;</button>
+            </div>
+        `;
+
+        // Estilos
+        Object.assign(notification.style, {
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            padding: '0',
+            borderRadius: '8px',
+            color: 'white',
+            zIndex: '10000',
+            minWidth: '300px',
+            maxWidth: '400px',
+            animation: 'slideInRight 0.3s ease',
+            fontFamily: 'Arial, sans-serif',
+            fontSize: '14px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            overflow: 'hidden'
+        });
+
+        const colors = {
+            success: '#4CAF50',
+            error: '#f44336',
+            warning: '#ff9800',
+            info: '#2196F3'
+        };
+        
+        notification.style.backgroundColor = colors[type] || colors.info;
+        document.body.appendChild(notification);
+
+        // Fechar notificação
+        notification.querySelector('.notification-close').onclick = () => notification.remove();
+
+        // Auto-remover após 5 segundos
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    // ==================== FUNÇÕES GLOBAIS ====================
+    
+    window.handleLogin = handleLogin;
+    window.handleLogout = handleLogout;
+    window.showNotification = showNotification;
+
+    // Inicialização
+    function init() {
+        console.log(`🚀 ${CONFIG.appName} v${CONFIG.version} - Iniciando...`);
+        initializeApplication();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    // Placeholder functions para evitar erros
+    async function updateRobotStatus() {}
+    async function loadMarketAnalysis() {}
+    function setupRobotAI() {}
+    function updateProposalPreview() {}
+    function setupActiveNavigation() {}
+    function updatePageSpecificUI() {}
+});

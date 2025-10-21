@@ -1,5 +1,5 @@
 # app.py - FinanceClick Backend with Accumulator Options AI Robot
-# VERSÃO CORRIGIDA - FLUXO OAUTH CORRETO
+# VERSÃO FINAL CORRIGIDA - SERVIÇO DE ARQUIVOS PWA COMPLETO
 import os
 import json
 import asyncio
@@ -19,6 +19,7 @@ import time
 from fastapi import FastAPI, Request, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, validator
 import secrets
 
@@ -231,7 +232,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="FinanceClick AI Trading Platform",
     description="Backend with Accumulator Options AI Robot",
-    version="2.5.0",
+    version="2.6.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc"
@@ -246,8 +247,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==================== SERVIÇO DE ARQUIVOS ESTÁTICOS ====================
+# ==================== SERVIÇO DE ARQUIVOS PWA COMPLETO ====================
 
+# ✅ CORREÇÃO CRÍTICA: Servir todos os arquivos PWA da pasta frontend
 @app.get("/", include_in_schema=False)
 async def serve_index():
     index_path = os.path.join(FRONTEND_PATH, "index.html")
@@ -257,22 +259,58 @@ async def serve_index():
 
 @app.get("/{page_name}", include_in_schema=False)
 async def serve_page(page_name: str):
+    # Servir páginas HTML específicas
     page_path = os.path.join(FRONTEND_PATH, page_name)
     if os.path.exists(page_path) and os.path.isfile(page_path):
         return FileResponse(page_path)
     
+    # Fallback para SPA
     index_path = os.path.join(FRONTEND_PATH, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     
     raise HTTPException(status_code=404, detail="Página não encontrada")
 
-@app.get("/static/{file_path:path}", include_in_schema=False)
-async def serve_static(file_path: str):
-    static_path = os.path.join(FRONTEND_PATH, file_path)
-    if os.path.exists(static_path):
-        return FileResponse(static_path)
-    raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+# ✅ NOVO: Servir service worker da raiz (crítico para PWA)
+@app.get("/service-worker.js", include_in_schema=False)
+async def serve_service_worker():
+    sw_path = os.path.join(FRONTEND_PATH, "service-worker.js")
+    if os.path.exists(sw_path):
+        return FileResponse(sw_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="Service Worker not found")
+
+# ✅ NOVO: Servir manifest da raiz (crítico para PWA)
+@app.get("/manifest.json", include_in_schema=False)
+async def serve_manifest():
+    manifest_path = os.path.join(FRONTEND_PATH, "manifest.json")
+    if os.path.exists(manifest_path):
+        return FileResponse(manifest_path, media_type="application/json")
+    raise HTTPException(status_code=404, detail="Manifest not found")
+
+# ✅ NOVO: Servir página offline
+@app.get("/offline.html", include_in_schema=False)
+async def serve_offline():
+    offline_path = os.path.join(FRONTEND_PATH, "offline.html")
+    if os.path.exists(offline_path):
+        return FileResponse(offline_path)
+    raise HTTPException(status_code=404, detail="Offline page not found")
+
+# ✅ CORREÇÃO CRÍTICA: Servir ícones da pasta frontend/icons
+@app.get("/icons/{icon_name}", include_in_schema=False)
+async def serve_icon(icon_name: str):
+    icon_path = os.path.join(FRONTEND_PATH, "icons", icon_name)
+    if os.path.exists(icon_path):
+        return FileResponse(icon_path)
+    logger.warning(f"Ícone não encontrado: {icon_name}")
+    raise HTTPException(status_code=404, detail="Icon not found")
+
+# ✅ NOVO: Servir qualquer arquivo estático da pasta frontend
+@app.get("/assets/{file_path:path}", include_in_schema=False)
+async def serve_assets(file_path: str):
+    asset_path = os.path.join(FRONTEND_PATH, file_path)
+    if os.path.exists(asset_path):
+        return FileResponse(asset_path)
+    raise HTTPException(status_code=404, detail="Asset not found")
 
 # Modelos Pydantic
 class AuthRequest(BaseModel):
@@ -387,7 +425,7 @@ async def login_with_deriv():
     auth_url = f"https://oauth.deriv.com/oauth2/authorize?{params}"
     return RedirectResponse(auth_url)
 
-# ✅ CORREÇÃO CRÍTICA: Callback redireciona para página inicial
+# ✅ CORREÇÃO CRÍTICA: Callback com melhor tratamento
 @app.get("/auth/callback")
 async def handle_oauth_callback(request: Request):
     try:
@@ -397,7 +435,6 @@ async def handle_oauth_callback(request: Request):
         if "error" in query_params:
             error_msg = query_params.get("error", "Erro desconhecido")
             logger.error(f"❌ Erro no OAuth callback: {error_msg}")
-            # Redireciona para a página inicial com parâmetro de erro
             return RedirectResponse(url="/?auth_error=1", status_code=302)
         
         accounts = []
@@ -431,8 +468,7 @@ async def handle_oauth_callback(request: Request):
             logger.error("❌ Nenhuma conta recebida no callback OAuth")
             return RedirectResponse(url="/?auth_error=2", status_code=302)
         
-        # ✅ CORREÇÃO: Redirecionar para página inicial em vez do dashboard
-        # O frontend (script.js) irá processar os tokens e redirecionar para o dashboard
+        # ✅ CORREÇÃO: Redirecionar para página inicial
         logger.info("✅ Autenticação bem-sucedida - Redirecionando para página inicial")
         return RedirectResponse(url="/", status_code=302)
         
@@ -740,6 +776,18 @@ async def get_market_analysis(symbol: str = "1HZ100V", strategy: str = "moderate
         logger.error(f"Erro na análise de mercado: {e}")
         raise HTTPException(status_code=500, detail="Erro na análise de mercado")
 
+# ✅ NOVO: Endpoint para debug do PWA
+@app.get("/api/debug/pwa")
+async def debug_pwa():
+    return {
+        "frontend_path": FRONTEND_PATH,
+        "icons_exist": os.path.exists(os.path.join(FRONTEND_PATH, "icons")),
+        "service_worker_exists": os.path.exists(os.path.join(FRONTEND_PATH, "service-worker.js")),
+        "manifest_exists": os.path.exists(os.path.join(FRONTEND_PATH, "manifest.json")),
+        "offline_page_exists": os.path.exists(os.path.join(FRONTEND_PATH, "offline.html")),
+        "available_icons": os.listdir(os.path.join(FRONTEND_PATH, "icons")) if os.path.exists(os.path.join(FRONTEND_PATH, "icons")) else []
+    }
+
 @app.get("/api/health")
 async def health_check():
     return {
@@ -751,7 +799,7 @@ async def health_check():
         "active_users": len(active_tokens),
         "user_sessions": len(user_sessions),
         "environment": ENVIRONMENT,
-        "version": "2.5.0"
+        "version": "2.6.0"
     }
 
 if __name__ == "__main__":
